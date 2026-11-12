@@ -61,9 +61,22 @@ begin
     raise exception 'Ticket identity and customer-submitted fields cannot be changed';
   end if;
 
+  if new.assigned_to is not null and not exists (
+    select 1
+    from public.profiles p
+    where p.id = new.assigned_to
+      and p.department = new.department
+      and p.role <> 'CUSTOMER'
+  ) then
+    raise exception 'Ticket assignee must be an employee in the ticket department';
+  end if;
+
   if role_value in ('FACTORY_AGENT', 'LOGISTICS_AGENT') then
     if new.department is distinct from old.department
-      or new.ai_summary is distinct from old.ai_summary then
+      or new.ai_summary is distinct from old.ai_summary
+      or new.subject is distinct from old.subject
+      or new.description is distinct from old.description
+      or new.category is distinct from old.category then
       raise exception 'Only operations administrators may change department or AI assessment';
     end if;
 
