@@ -43,6 +43,7 @@ export default function CustomerPage() {
       subject: form.subject.trim(),
       description: form.description.trim(),
       customer: form.company.trim() || form.name.trim(),
+      customerName: form.name.trim(),
       customerEmail: email.trim(),
       category: form.category,
       orderId: form.orderId.trim() || undefined,
