@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
 type Role = "CUSTOMER" | "FACTORY_AGENT" | "LOGISTICS_AGENT" | "OPERATIONS_ADMIN";
-type RefreshedCookie = { name: string; value: string; options?: Record<string, unknown> };
+type RefreshedCookie = { apply: (response: NextResponse) => void };
 
 function homeForRole(role: Role) {
   if (role === "CUSTOMER") return "/customer";
@@ -14,9 +14,7 @@ function homeForRole(role: Role) {
 
 function redirectWithSession(url: URL, cookies: RefreshedCookie[]) {
   const redirect = NextResponse.redirect(url);
-  cookies.forEach(({ name, value, options }) => {
-    redirect.cookies.set(name, value, options);
-  });
+  cookies.forEach(({ apply }) => apply(redirect));
   return redirect;
 }
 
@@ -33,7 +31,7 @@ export async function proxy(request: NextRequest) {
         cookiesToSet.forEach(({ name, value, options }) => {
           request.cookies.set(name, value);
           response.cookies.set(name, value, options);
-          refreshedCookies.push({ name, value, options });
+          refreshedCookies.push({ apply: (target) => target.cookies.set(name, value, options) });
         });
       },
     },
