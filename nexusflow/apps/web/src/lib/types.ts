@@ -32,10 +32,12 @@ export interface Ticket {
   priorityScore: number;
   status: TicketStatus;
   assignedTo: string;
+  assignedToId?: string;
   createdAt: string;
   updatedAt: string;
   aiSummary: string;
   slaDeadline: string;
+  orderId?: string;
   shipmentId?: string;
   origin?: string;
   destination?: string;
