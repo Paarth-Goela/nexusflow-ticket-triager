@@ -1,0 +1,27 @@
+"use client";
+
+import { useState } from "react";
+import { PackageSearch, Wrench } from "lucide-react";
+import type { Department } from "@/lib/types";
+import { useTickets } from "@/lib/ticket-context";
+import { isOpen } from "@/lib/utils";
+import { PortalShell } from "../layout/portal-shell";
+import { TicketDetailPanel } from "../tickets/ticket-detail-panel";
+import { PriorityIndicator } from "../tickets/priority-indicator";
+import { StatusBadge } from "../tickets/status-badge";
+
+const config = {
+  FACTORY: { title: "Factory Hub", description: "Coordinate production continuity, quality control and maintenance response.", categories: ["Production interruption", "Equipment failure", "Quality inspection", "Defective batch", "Maintenance", "Packaging issue"], icon: Wrench },
+  LOGISTICS: { title: "Logistics Hub", description: "Coordinate shipment exceptions, dispatch readiness and customer delivery performance.", categories: ["Shipment delay", "Missing shipment", "Damaged goods", "Dispatch failure", "Transporter issue", "Delivery documentation", "Inventory discrepancy"], icon: PackageSearch },
+} as const;
+
+export function DepartmentPortal({ department }: { department: Exclude<Department, "OPERATIONS"> }) {
+  const { tickets } = useTickets();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const departmentTickets = tickets.filter((ticket) => ticket.department === department);
+  const open = departmentTickets.filter(isOpen);
+  const selected = tickets.find((ticket) => ticket.id === selectedId);
+  const settings = config[department];
+  const stats = department === "FACTORY" ? [["Open production issues", open.length], ["Quality incidents", open.filter((ticket) => ticket.category.toLowerCase().includes("quality") || ticket.category.toLowerCase().includes("defective")).length], ["Equipment failures", open.filter((ticket) => ticket.category.toLowerCase().includes("equipment") || ticket.category.toLowerCase().includes("maintenance")).length], ["Critical interruptions", open.filter((ticket) => ticket.priority === "CRITICAL").length]] : [["Open shipment issues", open.length], ["Delayed shipments", open.filter((ticket) => ticket.category.toLowerCase().includes("delay")).length], ["Pending dispatches", open.filter((ticket) => ticket.category.toLowerCase().includes("dispatch")).length], ["Delivery exceptions", open.filter((ticket) => ticket.category.toLowerCase().includes("delivery") || ticket.category.toLowerCase().includes("damaged")).length]];
+  return <PortalShell title={settings.title} description={settings.description}><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value]) => <div key={label} className="border border-[#E1E4E2] bg-white p-4"><p className="text-2xl font-semibold">{value}</p><p className="mt-1 text-xs text-[#68747C]">{label}</p></div>)}</div><section className="mt-6 border border-[#E1E4E2] bg-white"><div className="flex items-center justify-between border-b border-[#E1E4E2] px-5 py-4"><div className="flex items-center gap-2"><settings.icon size={18} className="text-[#287D73]" /><div><h2 className="text-base font-semibold">{department === "FACTORY" ? "Factory ticket queue" : "Shipment ticket queue"}</h2><p className="mt-1 text-xs text-[#68747C]">{settings.categories.join(" · ")}</p></div></div><span className="text-xs text-[#68747C]">{departmentTickets.length} total</span></div><div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left"><caption className="sr-only">{settings.title} ticket queue</caption><thead className="border-b border-[#E1E4E2] bg-[#FAFAF8] text-[10px] uppercase tracking-[0.12em] text-[#68747C]"><tr>{(department === "FACTORY" ? ["Ticket", "Issue", "Location", "Category", "Priority", "Assigned", "Status", "SLA"] : ["Ticket", "Shipment", "Customer", "Origin / destination", "Priority", "Coordinator", "Status", "Updated"]).map((heading) => <th key={heading} className="px-4 py-3 font-semibold">{heading}</th>)}</tr></thead><tbody className="divide-y divide-[#E1E4E2]">{departmentTickets.map((ticket) => <tr key={ticket.id} className="cursor-pointer hover:bg-[#FAFAF8]" onClick={() => setSelectedId(ticket.id)}><td className="px-4 py-3"><span className="text-xs font-semibold text-[#287D73]">{ticket.id}</span><p className="mt-1 max-w-[190px] truncate text-sm font-medium">{ticket.subject}</p></td>{department === "FACTORY" ? <><td className="px-4 py-3 text-xs text-[#68747C]">{ticket.description}</td><td className="px-4 py-3 text-xs text-[#68747C]">{ticket.factoryLocation ?? "Primary plant"}</td><td className="px-4 py-3 text-xs text-[#68747C]">{ticket.category}</td></> : <><td className="px-4 py-3 text-xs text-[#68747C]">{ticket.shipmentId ?? "Shipment pending"}</td><td className="px-4 py-3 text-xs text-[#68747C]">{ticket.customer}</td><td className="px-4 py-3 text-xs text-[#68747C]">{ticket.origin ?? "Origin"} → {ticket.destination ?? "Destination"}</td></>}<td className="px-4 py-3"><PriorityIndicator priority={ticket.priority} /></td><td className="px-4 py-3 text-xs">{ticket.assignedTo}</td><td className="px-4 py-3"><StatusBadge status={ticket.status} /></td><td className="whitespace-nowrap px-4 py-3 text-xs text-[#68747C]">{department === "FACTORY" ? ticket.slaDeadline : ticket.updatedAt}</td></tr>)}</tbody></table></div></section>{selected && <TicketDetailPanel ticket={selected} onClose={() => setSelectedId(null)} />}</PortalShell>;
+}
