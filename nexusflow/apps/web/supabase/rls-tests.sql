@@ -1,0 +1,12 @@
+-- Run in a Supabase SQL test project with authenticated JWT claims.
+-- These are executable assertions to adapt to the project's pgTAP setup.
+-- Customer A must see zero rows belonging to Customer B:
+-- select is((select count(*) from public.tickets where customer_id = '<customer-b-uuid>'), 0::bigint);
+-- Customer A must see zero INTERNAL messages:
+-- select is((select count(*) from public.ticket_messages where visibility = 'INTERNAL'), 0::bigint);
+-- A FACTORY_AGENT must see zero LOGISTICS tickets:
+-- select is((select count(*) from public.tickets where department = 'LOGISTICS'), 0::bigint);
+-- A LOGISTICS_AGENT must see zero FACTORY tickets:
+-- select is((select count(*) from public.tickets where department = 'FACTORY'), 0::bigint);
+-- A customer role change must fail:
+-- update public.profiles set role = 'OPERATIONS_ADMIN' where id = auth.uid();

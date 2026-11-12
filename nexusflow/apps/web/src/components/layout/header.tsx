@@ -1,4 +1,5 @@
 import { Bell, Search } from "lucide-react";
+import { LogoutButton } from "../auth/logout-button";
 
 export function Header({ pageTitle }: { pageTitle: string }) {
   return (
@@ -7,7 +8,7 @@ export function Header({ pageTitle }: { pageTitle: string }) {
       <div className="flex items-center gap-4">
         <label className="hidden items-center gap-2 border border-[#E1E4E2] bg-[#F5F5F1] px-3 py-2 sm:flex"><Search size={16} className="text-[#68747C]" /><span className="sr-only">Search tickets</span><input className="w-40 bg-transparent text-sm text-[#172B3A] outline-none placeholder:text-[#68747C] lg:w-56" placeholder="Search tickets..." /></label>
         <button className="relative p-2 text-[#68747C] hover:text-[#172B3A]" aria-label="View notifications"><Bell size={19} strokeWidth={1.8} /><span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 bg-[#B94A48]" /></button>
-        <div className="flex h-8 w-8 items-center justify-center bg-[#172B3A] text-xs font-semibold text-white" aria-label="Jordan Davis profile">JD</div>
+        <div className="hidden sm:block"><LogoutButton /></div><div className="flex h-8 w-8 items-center justify-center bg-[#172B3A] text-xs font-semibold text-white" aria-label="Jordan Davis profile">JD</div>
       </div>
     </header>
   );

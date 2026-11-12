@@ -21,6 +21,7 @@ export interface TicketActivity {
 
 export interface Ticket {
   id: string;
+  databaseId?: string;
   subject: string;
   description: string;
   customer: string;
