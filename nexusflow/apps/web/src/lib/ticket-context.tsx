@@ -83,12 +83,14 @@ function fromDatabase(
   row: Record<string, unknown>,
   messages: Record<string, unknown>[],
   events: Record<string, unknown>[],
+  assignments: Record<string, unknown>[],
   people: Map<string, string>,
 ): Ticket {
   const ticketId = String(row.id);
   const ticketNumber = String(row.ticket_number);
   const ticketMessages = messages.filter((item) => String(item.ticket_id) === ticketId);
   const ticketEvents = events.filter((item) => String(item.ticket_id) === ticketId);
+  const ticketAssignments = assignments.filter((item) => String(item.ticket_id) === ticketId);
   const messageActivity: TicketActivity[] = ticketMessages.map((item) => {
     const visibility = String(item.visibility);
     const authorId = String(item.author_id ?? "");
@@ -113,7 +115,19 @@ function fromDatabase(
       public: type === "CREATED" || type === "STATUS_CHANGE" || type === "CUSTOMER_MESSAGE",
     };
   });
-  const activity = [...messageActivity, ...eventActivity].sort(
+  const assignmentActivity: TicketActivity[] = ticketAssignments.map((item) => {
+    const assigneeId = String(item.assigned_user_id ?? "");
+    const actorId = String(item.assigned_by ?? "");
+    return {
+      id: String(item.id),
+      type: "ASSIGNMENT",
+      actor: people.get(actorId) ?? "NexusFlow team",
+      message: assigneeId ? `Assigned to ${people.get(assigneeId) ?? "team member"}` : "Assignment cleared",
+      timestamp: String(item.created_at),
+      public: false,
+    };
+  });
+  const activity = [...messageActivity, ...eventActivity, ...assignmentActivity].sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
   );
 
@@ -184,15 +198,16 @@ export function TicketProvider({ children }: { children: ReactNode }) {
 
     const ticketRows = (ticketResult.data ?? []) as Record<string, unknown>[];
     const ticketIds = ticketRows.map((row) => String(row.id));
-    const [messageResult, eventResult] = ticketIds.length
+    const [messageResult, eventResult, assignmentResult] = ticketIds.length
       ? await Promise.all([
           supabase.from("ticket_messages").select("id, ticket_id, author_id, message, visibility, created_at").in("ticket_id", ticketIds).order("created_at", { ascending: true }),
           supabase.from("ticket_events").select("id, ticket_id, actor_id, event_type, description, created_at").in("ticket_id", ticketIds).order("created_at", { ascending: true }),
+          supabase.from("ticket_assignments").select("id, ticket_id, assigned_user_id, assigned_by, created_at").in("ticket_id", ticketIds).order("created_at", { ascending: true }),
         ])
-      : [{ data: [], error: null }, { data: [], error: null }];
+      : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
 
-    if (messageResult.error || eventResult.error) {
-      setError(`Ticket history could not be loaded: ${messageResult.error?.message ?? eventResult.error?.message}`);
+    if (messageResult.error || eventResult.error || assignmentResult.error) {
+      setError(`Ticket history could not be loaded: ${messageResult.error?.message ?? eventResult.error?.message ?? assignmentResult.error?.message}`);
       setLoading(false);
       return;
     }
@@ -216,9 +231,10 @@ export function TicketProvider({ children }: { children: ReactNode }) {
 
     const messageRows = (messageResult.data ?? []) as Record<string, unknown>[];
     const eventRows = (eventResult.data ?? []) as Record<string, unknown>[];
+    const assignmentRows = (assignmentResult.data ?? []) as Record<string, unknown>[];
     dispatch({
       type: "replace",
-      tickets: ticketRows.map((row) => fromDatabase(row, messageRows, eventRows, people)),
+      tickets: ticketRows.map((row) => fromDatabase(row, messageRows, eventRows, assignmentRows, people)),
     });
     setTeamMembers(members);
     setReady(true);
@@ -438,7 +454,7 @@ export function TicketProvider({ children }: { children: ReactNode }) {
         const eventResult = await supabase.from("ticket_events").insert({
           ticket_id: current.databaseId,
           actor_id: userData.user.id,
-          event_type: "ASSIGNMENT",
+          event_type: "PRIORITY_CHANGE",
           previous_value: { priority: current.priority },
           new_value: { priority: "CRITICAL" },
           description: "Ticket escalated to critical priority",
@@ -446,7 +462,15 @@ export function TicketProvider({ children }: { children: ReactNode }) {
         if (eventResult.error) setError(`Escalation saved, but activity history failed: ${eventResult.error.message}`);
       }
     }
-    replaceTicket({ ...current, priority: "CRITICAL", priorityScore: 100, updatedAt: nowLabel() });
+    const activity: TicketActivity = {
+      id: `${id}-priority-${Date.now()}`,
+      type: "PRIORITY_CHANGE",
+      actor: "Current team member",
+      message: "Ticket escalated to critical priority",
+      timestamp: nowLabel(),
+      public: false,
+    };
+    replaceTicket({ ...current, priority: "CRITICAL", priorityScore: 100, updatedAt: nowLabel(), activity: [...(current.activity ?? []), activity] });
   }, [replaceTicket, state, supabase]);
 
   const addMessage = useCallback(async (id: string, message: string, visibility: "PUBLIC" | "INTERNAL") => {
