@@ -3,7 +3,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(7);
+select plan(10);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password,
@@ -21,7 +21,10 @@ insert into auth.users (
    now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Factory Agent"}', now(), now()),
   ('00000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000004',
    'authenticated', 'authenticated', 'logistics@nexusflow.test', 'test-password',
-   now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Logistics Agent"}', now(), now());
+   now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Logistics Agent"}', now(), now()),
+  ('00000000-0000-0000-0000-000000000005', '10000000-0000-0000-0000-000000000005',
+   'authenticated', 'authenticated', 'ops@nexusflow.test', 'test-password',
+   now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Operations Admin"}', now(), now());
 
 update public.profiles
 set role = 'FACTORY_AGENT', department = 'FACTORY'
@@ -30,6 +33,10 @@ where id = '10000000-0000-0000-0000-000000000003';
 update public.profiles
 set role = 'LOGISTICS_AGENT', department = 'LOGISTICS'
 where id = '10000000-0000-0000-0000-000000000004';
+
+update public.profiles
+set role = 'OPERATIONS_ADMIN', department = 'OPERATIONS'
+where id = '10000000-0000-0000-0000-000000000005';
 
 insert into public.tickets (
   ticket_number, customer_id, subject, description, customer_email, category, department
@@ -79,6 +86,24 @@ select throws_ok(
   'A customer cannot assign themselves to a department'
 );
 
+insert into public.tickets (
+  customer_id, customer_email, customer_company, subject, description,
+  category, department, priority, priority_score, status, assigned_to, ai_summary
+) values (
+  '10000000-0000-0000-0000-000000000001', 'spoofed@example.test', 'Customer A',
+  'Malicious field override attempt', 'Customer-supplied test record', 'Other',
+  'FACTORY', 'CRITICAL', 100, 'CLOSED',
+  '10000000-0000-0000-0000-000000000004', 'Untrusted summary'
+);
+
+select is(
+  (select department::text || ':' || priority::text || ':' || status::text || ':' ||
+    coalesce(assigned_to::text, 'NULL') || ':' || customer_email
+   from public.tickets where subject = 'Malicious field override attempt'),
+  'OPERATIONS:MEDIUM:NEW:NULL:customer-a@nexusflow.test',
+  'Customer inserts cannot override routing, priority, status, assignee, or account email'
+);
+
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000003', true);
 select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000003","role":"authenticated"}', true);
 select is(
@@ -91,6 +116,22 @@ select throws_ok(
   'P0001',
   'Tickets can only be assigned to an agent in the same department',
   'Factory agents cannot assign tickets to logistics agents'
+);
+
+select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000004', true);
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000004","role":"authenticated"}', true);
+select is(
+  (select count(*)::integer from public.tickets where department = 'FACTORY'),
+  0,
+  'Logistics agents cannot read factory tickets'
+);
+
+select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000005', true);
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000005","role":"authenticated"}', true);
+select is(
+  (select count(*)::integer from public.tickets where ticket_number in ('TEST-CUSTOMER-A', 'TEST-CUSTOMER-B')),
+  2,
+  'Operations administrators can read tickets across departments'
 );
 
 select * from finish();
