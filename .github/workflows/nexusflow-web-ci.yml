@@ -1,0 +1,35 @@
+name: NexusFlow web checks
+
+on:
+  push:
+    paths:
+      - "nexusflow/apps/web/**"
+      - ".github/workflows/nexusflow-web-ci.yml"
+  pull_request:
+    paths:
+      - "nexusflow/apps/web/**"
+      - ".github/workflows/nexusflow-web-ci.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nexusflow/apps/web
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: nexusflow/apps/web/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Production build
+        run: npm run build

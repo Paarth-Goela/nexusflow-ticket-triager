@@ -12,7 +12,7 @@ export type DemoRole = "CUSTOMER" | "FACTORY_AGENT" | "LOGISTICS_AGENT" | "OPERA
 
 export interface TicketActivity {
   id: string;
-  type: "STATUS_CHANGE" | "ASSIGNMENT" | "INTERNAL_NOTE" | "CUSTOMER_MESSAGE" | "CREATED";
+  type: "STATUS_CHANGE" | "ASSIGNMENT" | "PRIORITY_CHANGE" | "INTERNAL_NOTE" | "CUSTOMER_MESSAGE" | "CREATED";
   actor: string;
   message: string;
   timestamp: string;
@@ -32,10 +32,12 @@ export interface Ticket {
   priorityScore: number;
   status: TicketStatus;
   assignedTo: string;
+  assignedToId?: string;
   createdAt: string;
   updatedAt: string;
   aiSummary: string;
   slaDeadline: string;
+  orderId?: string;
   shipmentId?: string;
   origin?: string;
   destination?: string;
