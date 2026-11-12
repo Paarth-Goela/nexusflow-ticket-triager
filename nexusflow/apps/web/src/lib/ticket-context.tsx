@@ -60,7 +60,8 @@ function withDefaults(ticket: Ticket): Ticket {
     ...ticket,
     internalNotes: ticket.internalNotes ?? [],
     customerMessages: ticket.customerMessages ?? [],
-    activity: ticket.activity ?? [{
+    assignedToId: ticket.assignedToId ?? demoTeam.find((member) => member.fullName === ticket.assignedTo)?.id,
+    activity: ticket.activity?.length ? ticket.activity : [{
       id: `${ticket.id}-created`,
       type: "CREATED",
       actor: "NexusFlow",
