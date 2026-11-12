@@ -34,6 +34,7 @@ declare
 begin
   if tg_op = 'INSERT' then
     if role_value = 'CUSTOMER' then
+      new.ticket_number := 'NFX-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8));
       new.customer_id := (select auth.uid());
       select p.email into new.customer_email
       from public.profiles p
@@ -44,6 +45,10 @@ begin
       new.status := 'NEW';
       new.assigned_to := null;
       new.ai_summary := 'Awaiting operational review.';
+      new.sla_deadline := null;
+      new.proof_of_delivery_reference := null;
+      new.created_at := now();
+      new.updated_at := now();
     elsif role_value is not null and role_value <> 'OPERATIONS_ADMIN' then
       raise exception 'Only customers or trusted operations provisioning may create tickets';
     end if;
