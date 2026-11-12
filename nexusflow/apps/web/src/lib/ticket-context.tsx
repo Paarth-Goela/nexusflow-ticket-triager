@@ -181,7 +181,7 @@ export function TicketProvider({ children }: { children: ReactNode }) {
 
     const [ticketResult, profileResult] = await Promise.all([
       supabase.from("tickets").select("*").order("updated_at", { ascending: false }),
-      supabase.from("profiles").select("id, full_name, department, role").neq("role", "CUSTOMER"),
+      supabase.from("profiles").select("id, full_name, department, role"),
     ]);
 
     if (ticketResult.error) {
