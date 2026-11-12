@@ -3,7 +3,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(10);
+select extensions.plan(10);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password,
@@ -58,28 +58,28 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', true);
 select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
 
-select is(
+select extensions.is(
   (select count(*)::integer from public.tickets where ticket_number = 'TEST-CUSTOMER-B'),
   0,
   'Customer A cannot read Customer B tickets'
 );
-select is(
+select extensions.is(
   (select count(*)::integer from public.ticket_messages where visibility = 'INTERNAL'),
   0,
   'Customer A cannot read internal messages'
 );
-select is(
+select extensions.is(
   (select count(*)::integer from public.ticket_messages where visibility = 'PUBLIC'),
   1,
   'Customer A can read public messages on their own ticket'
 );
-select throws_ok(
+select extensions.throws_ok(
   $$update public.profiles set role = 'OPERATIONS_ADMIN' where id = '10000000-0000-0000-0000-000000000001'$$,
   'P0001',
   'Profile roles and departments are provisioned by trusted administration',
   'A customer cannot promote their own role'
 );
-select throws_ok(
+select extensions.throws_ok(
   $$update public.profiles set department = 'FACTORY' where id = '10000000-0000-0000-0000-000000000001'$$,
   'P0001',
   'Profile roles and departments are provisioned by trusted administration',
@@ -96,7 +96,7 @@ insert into public.tickets (
   '10000000-0000-0000-0000-000000000004', 'Untrusted summary'
 );
 
-select is(
+select extensions.is(
   (select department::text || ':' || priority::text || ':' || status::text || ':' ||
     coalesce(assigned_to::text, 'NULL') || ':' || customer_email
    from public.tickets where subject = 'Malicious field override attempt'),
@@ -106,12 +106,12 @@ select is(
 
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000003', true);
 select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000003","role":"authenticated"}', true);
-select is(
+select extensions.is(
   (select count(*)::integer from public.tickets where department = 'LOGISTICS'),
   0,
   'Factory agents cannot read logistics tickets'
 );
-select throws_ok(
+select extensions.throws_ok(
   $$update public.tickets set assigned_to = '10000000-0000-0000-0000-000000000004' where ticket_number = 'TEST-CUSTOMER-A'$$,
   'P0001',
   'Ticket assignee must be an employee in the ticket department',
@@ -120,7 +120,7 @@ select throws_ok(
 
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000004', true);
 select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000004","role":"authenticated"}', true);
-select is(
+select extensions.is(
   (select count(*)::integer from public.tickets where department = 'FACTORY'),
   0,
   'Logistics agents cannot read factory tickets'
@@ -128,11 +128,11 @@ select is(
 
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000005', true);
 select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000005","role":"authenticated"}', true);
-select is(
+select extensions.is(
   (select count(*)::integer from public.tickets where ticket_number in ('TEST-CUSTOMER-A', 'TEST-CUSTOMER-B')),
   2,
   'Operations administrators can read tickets across departments'
 );
 
-select * from finish();
+select * from extensions.finish();
 rollback;
