@@ -125,7 +125,7 @@ using (
   or (select public.current_user_role()) = 'OPERATIONS_ADMIN'
   or (
     department is not null
-    and department = (select public.current_user_department())
+    and ticket_assignments.department = (select public.current_user_department())
     and (select public.current_user_role()) in ('FACTORY_AGENT', 'LOGISTICS_AGENT')
   )
 );
@@ -256,7 +256,7 @@ with check (
     select 1
     from public.tickets t
     where t.id = ticket_id
-      and t.department = department
+      and t.department = ticket_assignments.department
       and (
         (select public.current_user_role()) = 'OPERATIONS_ADMIN'
         or (
@@ -271,7 +271,7 @@ with check (
       select 1
       from public.profiles p
       where p.id = assigned_user_id
-        and p.department = department
+        and p.department = ticket_assignments.department
         and p.role <> 'CUSTOMER'
     )
   )
