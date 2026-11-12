@@ -114,7 +114,7 @@ select is(
 select throws_ok(
   $$update public.tickets set assigned_to = '10000000-0000-0000-0000-000000000004' where ticket_number = 'TEST-CUSTOMER-A'$$,
   'P0001',
-  'Tickets can only be assigned to an agent in the same department',
+  'Ticket assignee must be an employee in the ticket department',
   'Factory agents cannot assign tickets to logistics agents'
 );
 
