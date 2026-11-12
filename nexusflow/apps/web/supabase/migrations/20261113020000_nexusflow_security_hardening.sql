@@ -125,7 +125,7 @@ using (
   or (select public.current_user_role()) = 'OPERATIONS_ADMIN'
   or (
     department is not null
-    and ticket_assignments.department = (select public.current_user_department())
+    and department = (select public.current_user_department())
     and (select public.current_user_role()) in ('FACTORY_AGENT', 'LOGISTICS_AGENT')
   )
 );
@@ -244,7 +244,7 @@ create policy assignments_select_team_or_admin
 on public.ticket_assignments for select to authenticated
 using (
   (select public.current_user_role()) = 'OPERATIONS_ADMIN'
-  or department = (select public.current_user_department())
+  or ticket_assignments.department = (select public.current_user_department())
 );
 
 drop policy if exists assignments_insert_admin on public.ticket_assignments;
@@ -260,7 +260,7 @@ with check (
       and (
         (select public.current_user_role()) = 'OPERATIONS_ADMIN'
         or (
-          department = (select public.current_user_department())
+          ticket_assignments.department = (select public.current_user_department())
           and (select public.current_user_role()) in ('FACTORY_AGENT', 'LOGISTICS_AGENT')
         )
       )
