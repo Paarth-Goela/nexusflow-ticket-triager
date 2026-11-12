@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
 type Role = "CUSTOMER" | "FACTORY_AGENT" | "LOGISTICS_AGENT" | "OPERATIONS_ADMIN";
+type RefreshedCookie = { name: string; value: string; options?: Record<string, unknown> };
 
 function homeForRole(role: Role) {
   if (role === "CUSTOMER") return "/customer";
@@ -11,9 +12,11 @@ function homeForRole(role: Role) {
   return "/operations";
 }
 
-function redirectWithSession(url: URL, response: NextResponse) {
+function redirectWithSession(url: URL, cookies: RefreshedCookie[]) {
   const redirect = NextResponse.redirect(url);
-  response.cookies.getAll().forEach(({ name, value }) => redirect.cookies.set(name, value));
+  cookies.forEach(({ name, value, options }) => {
+    redirect.cookies.set(name, value, options);
+  });
   return redirect;
 }
 
@@ -22,6 +25,7 @@ export async function proxy(request: NextRequest) {
   const env = getSupabaseEnv();
   if (!env) return response;
 
+  const refreshedCookies: RefreshedCookie[] = [];
   const supabase = createServerClient(env.url, env.publishableKey, {
     cookies: {
       getAll: () => request.cookies.getAll(),
@@ -29,6 +33,7 @@ export async function proxy(request: NextRequest) {
         cookiesToSet.forEach(({ name, value, options }) => {
           request.cookies.set(name, value);
           response.cookies.set(name, value, options);
+          refreshedCookies.push({ name, value, options });
         });
       },
     },
@@ -49,7 +54,7 @@ export async function proxy(request: NextRequest) {
     const login = request.nextUrl.clone();
     login.pathname = "/login";
     login.searchParams.set("next", pathname);
-    return redirectWithSession(login, response);
+    return redirectWithSession(login, refreshedCookies);
   }
 
   const userId = typeof claims.sub === "string" ? claims.sub : null;
@@ -57,7 +62,7 @@ export async function proxy(request: NextRequest) {
     const login = request.nextUrl.clone();
     login.pathname = "/login";
     login.search = "?error=session_invalid";
-    return redirectWithSession(login, response);
+    return redirectWithSession(login, refreshedCookies);
   }
 
   // Authorization is derived only from the protected profiles table, never user metadata.
@@ -71,7 +76,7 @@ export async function proxy(request: NextRequest) {
     const login = request.nextUrl.clone();
     login.pathname = "/login";
     login.search = "?error=profile_unavailable";
-    return redirectWithSession(login, response);
+    return redirectWithSession(login, refreshedCookies);
   }
 
   const role = profile.role as Role;
@@ -81,7 +86,7 @@ export async function proxy(request: NextRequest) {
     const destination = request.nextUrl.clone();
     destination.pathname = home;
     destination.search = "";
-    return redirectWithSession(destination, response);
+    return redirectWithSession(destination, refreshedCookies);
   }
 
   const allowed =
@@ -95,7 +100,7 @@ export async function proxy(request: NextRequest) {
     const destination = request.nextUrl.clone();
     destination.pathname = home;
     destination.search = "";
-    return redirectWithSession(destination, response);
+    return redirectWithSession(destination, refreshedCookies);
   }
 
   return response;
