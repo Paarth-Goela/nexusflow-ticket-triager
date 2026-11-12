@@ -12,7 +12,7 @@ export type DemoRole = "CUSTOMER" | "FACTORY_AGENT" | "LOGISTICS_AGENT" | "OPERA
 
 export interface TicketActivity {
   id: string;
-  type: "STATUS_CHANGE" | "ASSIGNMENT" | "INTERNAL_NOTE" | "CUSTOMER_MESSAGE" | "CREATED";
+  type: "STATUS_CHANGE" | "ASSIGNMENT" | "PRIORITY_CHANGE" | "INTERNAL_NOTE" | "CUSTOMER_MESSAGE" | "CREATED";
   actor: string;
   message: string;
   timestamp: string;
