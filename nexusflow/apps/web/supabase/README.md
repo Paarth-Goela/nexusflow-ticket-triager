@@ -1,18 +1,23 @@
 # Supabase setup and trusted role provisioning
 
-## Apply migrations
+## Initialize and link the Supabase project
 
-From `apps/web`:
+From the repository root:
 
 ```bash
+cd nexusflow/apps/web
+npx supabase init
 npx supabase login
 npx supabase link --project-ref YOUR_PROJECT_REF
 npx supabase db push
 ```
 
+If `supabase/config.toml` already exists, skip `npx supabase init`. The init command creates local CLI configuration; it does not replace the existing SQL migrations.
+
 Run the database security tests against a disposable/local Supabase database:
 
 ```bash
+npx supabase start
 npx supabase test db
 ```
 
@@ -44,7 +49,7 @@ Trusted provisioning is required because authenticated users cannot change their
 
 ## Environment
 
-Set these in `apps/web/.env.local`:
+Copy `.env.example` to `.env.local` in `apps/web` and set:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
