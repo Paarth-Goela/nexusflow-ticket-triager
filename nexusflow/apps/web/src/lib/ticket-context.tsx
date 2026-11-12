@@ -73,7 +73,7 @@ function withDefaults(ticket: Ticket): Ticket {
 }
 
 function toActivityType(value: unknown): TicketActivity["type"] {
-  if (value === "STATUS_CHANGE" || value === "ASSIGNMENT" || value === "INTERNAL_NOTE" || value === "CUSTOMER_MESSAGE") {
+  if (value === "STATUS_CHANGE" || value === "ASSIGNMENT" || value === "PRIORITY_CHANGE" || value === "INTERNAL_NOTE" || value === "CUSTOMER_MESSAGE") {
     return value;
   }
   return "CREATED";
@@ -269,6 +269,7 @@ export function TicketProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "tickets" }, () => { void refresh(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "ticket_messages" }, () => { void refresh(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "ticket_events" }, () => { void refresh(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "ticket_assignments" }, () => { void refresh(); })
       .subscribe();
 
     return () => {
@@ -336,7 +337,7 @@ export function TicketProvider({ children }: { children: ReactNode }) {
       return null;
     }
 
-    const created = fromDatabase(result.data as Record<string, unknown>, [], [], new Map());
+    const created = fromDatabase(result.data as Record<string, unknown>, [], [], [], new Map());
     dispatch({ type: "replace", tickets: [created, ...state] });
     return created;
   }, [state, supabase]);
