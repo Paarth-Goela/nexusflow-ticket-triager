@@ -15,7 +15,7 @@ export interface TeamMember {
 }
 
 type TicketInput = Pick<Ticket, "subject" | "description" | "customer" | "customerEmail" | "category"> &
-  Partial<Pick<Ticket, "department" | "shipmentId" | "orderId">>;
+  Partial<Pick<Ticket, "department" | "shipmentId" | "orderId">> & { customerName?: string };
 
 type Action = { type: "replace"; tickets: Ticket[] };
 
@@ -292,6 +292,15 @@ export function TicketProvider({ children }: { children: ReactNode }) {
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData.user?.email) {
       setError(userError?.message ?? "Your authenticated email could not be verified.");
+      return null;
+    }
+
+    const profileUpdate = await supabase.from("profiles").update({
+      full_name: input.customerName?.trim() || undefined,
+      company: input.customer.trim(),
+    }).eq("id", userData.user.id);
+    if (profileUpdate.error) {
+      setError(`Customer profile could not be updated: ${profileUpdate.error.message}`);
       return null;
     }
 
