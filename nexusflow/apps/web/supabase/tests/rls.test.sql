@@ -16,13 +16,13 @@ insert into auth.users (
   ('00000000-0000-0000-0000-000000000000', '10000000-0000-0000-0000-000000000002',
    'authenticated', 'authenticated', 'customer-b@nexusflow.test', 'test-password',
    now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Customer B"}', now(), now()),
-  ('00000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000003',
+  ('00000000-0000-0000-0000-000000000000', '10000000-0000-0000-0000-000000000003',
    'authenticated', 'authenticated', 'factory@nexusflow.test', 'test-password',
    now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Factory Agent"}', now(), now()),
-  ('00000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000004',
+  ('00000000-0000-0000-0000-000000000000', '10000000-0000-0000-0000-000000000004',
    'authenticated', 'authenticated', 'logistics@nexusflow.test', 'test-password',
    now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Logistics Agent"}', now(), now()),
-  ('00000000-0000-0000-0000-000000000005', '10000000-0000-0000-0000-000000000005',
+  ('00000000-0000-0000-0000-000000000000', '10000000-0000-0000-0000-000000000005',
    'authenticated', 'authenticated', 'ops@nexusflow.test', 'test-password',
    now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Operations Admin"}', now(), now());
 
