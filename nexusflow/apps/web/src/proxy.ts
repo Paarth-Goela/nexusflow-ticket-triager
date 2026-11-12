@@ -2,6 +2,21 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
+type Role = "CUSTOMER" | "FACTORY_AGENT" | "LOGISTICS_AGENT" | "OPERATIONS_ADMIN";
+
+function homeForRole(role: Role) {
+  if (role === "CUSTOMER") return "/customer";
+  if (role === "FACTORY_AGENT") return "/factory";
+  if (role === "LOGISTICS_AGENT") return "/logistics";
+  return "/operations";
+}
+
+function redirectWithSession(url: URL, response: NextResponse) {
+  const redirect = NextResponse.redirect(url);
+  response.cookies.getAll().forEach(({ name, value }) => redirect.cookies.set(name, value));
+  return redirect;
+}
+
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request });
   const env = getSupabaseEnv();
@@ -19,14 +34,70 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const { data } = await supabase.auth.getClaims();
-  const protectedPath = ["/customer", "/factory", "/operations", "/logistics"].some((path) => request.nextUrl.pathname.startsWith(path));
-  if (protectedPath && !data?.claims) {
+  const pathname = request.nextUrl.pathname;
+  const isProtectedPath = ["/customer", "/factory", "/operations", "/logistics"].some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  );
+  const isAuthPath = pathname === "/login" || pathname === "/signup";
+  if (!isProtectedPath && !isAuthPath) return response;
+
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+  const claims = claimsData?.claims;
+
+  if (!claims || claimsError) {
+    if (!isProtectedPath) return response;
     const login = request.nextUrl.clone();
     login.pathname = "/login";
-    login.searchParams.set("next", request.nextUrl.pathname);
-    return NextResponse.redirect(login);
+    login.searchParams.set("next", pathname);
+    return redirectWithSession(login, response);
   }
+
+  const userId = typeof claims.sub === "string" ? claims.sub : null;
+  if (!userId) {
+    const login = request.nextUrl.clone();
+    login.pathname = "/login";
+    login.search = "?error=session_invalid";
+    return redirectWithSession(login, response);
+  }
+
+  // Authorization is derived only from the protected profiles table, never user metadata.
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role, department")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError || !profile?.role) {
+    const login = request.nextUrl.clone();
+    login.pathname = "/login";
+    login.search = "?error=profile_unavailable";
+    return redirectWithSession(login, response);
+  }
+
+  const role = profile.role as Role;
+  const home = homeForRole(role);
+
+  if (isAuthPath) {
+    const destination = request.nextUrl.clone();
+    destination.pathname = home;
+    destination.search = "";
+    return redirectWithSession(destination, response);
+  }
+
+  const allowed =
+    (pathname === "/customer" || pathname.startsWith("/customer/")) ? role === "CUSTOMER" :
+    (pathname === "/factory" || pathname.startsWith("/factory/")) ? role === "FACTORY_AGENT" || role === "OPERATIONS_ADMIN" :
+    (pathname === "/logistics" || pathname.startsWith("/logistics/")) ? role === "LOGISTICS_AGENT" || role === "OPERATIONS_ADMIN" :
+    (pathname === "/operations" || pathname.startsWith("/operations/")) ? role === "OPERATIONS_ADMIN" :
+    false;
+
+  if (!allowed) {
+    const destination = request.nextUrl.clone();
+    destination.pathname = home;
+    destination.search = "";
+    return redirectWithSession(destination, response);
+  }
+
   return response;
 }
 
