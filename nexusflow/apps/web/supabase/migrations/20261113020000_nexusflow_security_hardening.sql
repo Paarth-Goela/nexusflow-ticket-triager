@@ -288,3 +288,26 @@ revoke all on function public.provision_profile() from public, anon, authenticat
 revoke all on function public.prevent_self_role_change() from public, anon, authenticated;
 revoke all on function public.protect_ticket_fields() from public, anon, authenticated;
 revoke all on function public.set_updated_at() from public, anon, authenticated;
+
+
+-- Enable cross-portal live updates for the tables consumed by the client.
+do $$
+declare
+  table_name text;
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    foreach table_name in array array['tickets', 'ticket_messages', 'ticket_events', 'ticket_assignments']
+    loop
+      if not exists (
+        select 1
+        from pg_publication_tables
+        where pubname = 'supabase_realtime'
+          and schemaname = 'public'
+          and tablename = table_name
+      ) then
+        execute format('alter publication supabase_realtime add table public.%I', table_name);
+      end if;
+    end loop;
+  end if;
+end;
+$$;
