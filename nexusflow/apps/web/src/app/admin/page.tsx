@@ -139,7 +139,7 @@ function AdminConsole() {
       <main className="mx-auto max-w-[1600px] space-y-6 px-5 py-7 sm:px-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div><p className="text-xs font-semibold text-[#287D73]">PLATFORM OVERVIEW</p><h1 className="mt-1 text-2xl font-semibold tracking-tight">{navItems.find((item) => item.id === tab)?.label}</h1><p className="mt-1 text-sm text-[#68747C]">A consolidated view of tickets, teams and operational activity.</p></div>
-          <div className="text-xs text-[#68747C]">Updated {new Date().toLocaleString()}</div>
+          <div className="text-xs text-[#68747C]">Live workspace overview</div>
         </div>
 
         {error && <div className="border border-[#B94A48]/30 bg-white px-4 py-3 text-sm text-[#B94A48]" role="alert">{error}</div>}
