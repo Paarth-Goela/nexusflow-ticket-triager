@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Activity, AlertCircle, ArrowUpRight, CheckCircle2, Clock3, LayoutDashboard,
-  Search, ShieldCheck, Ticket as TicketIcon, Users, Factory, BriefcaseBusiness,
+  Search, ShieldCheck, Ticket as TicketIcon, Users,
 } from "lucide-react";
 import { AuthGate } from "@/components/auth/auth-gate";
 import { LogoutButton } from "@/components/auth/logout-button";
