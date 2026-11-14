@@ -8,7 +8,7 @@ export type TicketStatus =
   | "WAITING_FOR_TEAM"
   | "RESOLVED"
   | "CLOSED";
-export type DemoRole = "CUSTOMER" | "FACTORY_AGENT" | "LOGISTICS_AGENT" | "OPERATIONS_ADMIN";
+export type DemoRole = "CUSTOMER" | "FACTORY_AGENT" | "LOGISTICS_AGENT" | "OPERATIONS_ADMIN" | "SYSTEM_ADMIN";
 
 export interface TicketActivity {
   id: string;
