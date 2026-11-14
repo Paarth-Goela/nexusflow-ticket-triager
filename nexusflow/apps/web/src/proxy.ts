@@ -2,13 +2,14 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
-type Role = "CUSTOMER" | "FACTORY_AGENT" | "LOGISTICS_AGENT" | "OPERATIONS_ADMIN";
+type Role = "CUSTOMER" | "FACTORY_AGENT" | "LOGISTICS_AGENT" | "OPERATIONS_ADMIN" | "SYSTEM_ADMIN";
 type RefreshedCookie = { apply: (response: NextResponse) => void };
 
 function homeForRole(role: Role) {
   if (role === "CUSTOMER") return "/customer";
   if (role === "FACTORY_AGENT") return "/factory";
   if (role === "LOGISTICS_AGENT") return "/logistics";
+  if (role === "SYSTEM_ADMIN") return "/admin";
   return "/operations";
 }
 
@@ -38,7 +39,7 @@ export async function proxy(request: NextRequest) {
   });
 
   const pathname = request.nextUrl.pathname;
-  const isProtectedPath = ["/customer", "/factory", "/operations", "/logistics"].some(
+  const isProtectedPath = ["/customer", "/factory", "/operations", "/logistics", "/admin"].some(
     (path) => pathname === path || pathname.startsWith(`${path}/`),
   );
   const isAuthPath = pathname === "/login" || pathname === "/signup";
@@ -63,7 +64,6 @@ export async function proxy(request: NextRequest) {
     return redirectWithSession(login, refreshedCookies);
   }
 
-  // Authorization is derived only from the protected profiles table, never user metadata.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role, department")
@@ -89,9 +89,10 @@ export async function proxy(request: NextRequest) {
 
   const allowed =
     (pathname === "/customer" || pathname.startsWith("/customer/")) ? role === "CUSTOMER" :
-    (pathname === "/factory" || pathname.startsWith("/factory/")) ? role === "FACTORY_AGENT" || role === "OPERATIONS_ADMIN" :
-    (pathname === "/logistics" || pathname.startsWith("/logistics/")) ? role === "LOGISTICS_AGENT" || role === "OPERATIONS_ADMIN" :
-    (pathname === "/operations" || pathname.startsWith("/operations/")) ? role === "OPERATIONS_ADMIN" :
+    (pathname === "/factory" || pathname.startsWith("/factory/")) ? ["FACTORY_AGENT", "OPERATIONS_ADMIN", "SYSTEM_ADMIN"].includes(role) :
+    (pathname === "/logistics" || pathname.startsWith("/logistics/")) ? ["LOGISTICS_AGENT", "OPERATIONS_ADMIN", "SYSTEM_ADMIN"].includes(role) :
+    (pathname === "/operations" || pathname.startsWith("/operations/")) ? role === "OPERATIONS_ADMIN" || role === "SYSTEM_ADMIN" :
+    (pathname === "/admin" || pathname.startsWith("/admin/")) ? role === "SYSTEM_ADMIN" :
     false;
 
   if (!allowed) {
