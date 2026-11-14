@@ -4,12 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-type Role = "CUSTOMER" | "FACTORY_AGENT" | "LOGISTICS_AGENT" | "OPERATIONS_ADMIN";
+type Role = "CUSTOMER" | "FACTORY_AGENT" | "LOGISTICS_AGENT" | "OPERATIONS_ADMIN" | "SYSTEM_ADMIN";
 
 function routeForRole(role: Role) {
   if (role === "CUSTOMER") return "/customer";
   if (role === "FACTORY_AGENT") return "/factory";
   if (role === "LOGISTICS_AGENT") return "/logistics";
+  if (role === "SYSTEM_ADMIN") return "/admin";
   return "/operations";
 }
 
