@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import type { Ticket, TicketStatus } from "@/lib/types";
+import type { Department, Priority, Ticket, TicketStatus } from "@/lib/types";
 import { useTickets } from "@/lib/ticket-context";
 import { departmentLabels, priorityLabels, statusLabels } from "@/lib/utils";
 import { Button } from "../ui/button";
 import { PriorityIndicator } from "./priority-indicator";
 import { StatusBadge } from "./status-badge";
 
-export function TicketDetailPanel({ ticket, customerView = false, onClose }: { ticket: Ticket; customerView?: boolean; onClose: () => void }) {
+export function TicketDetailPanel({ ticket, customerView = false, systemAdmin = false, onClose }: { ticket: Ticket; customerView?: boolean; systemAdmin?: boolean; onClose: () => void }) {
   const {
     updateStatus,
     updateTicket,
@@ -30,9 +30,13 @@ export function TicketDetailPanel({ ticket, customerView = false, onClose }: { t
     <div className="sticky top-0 flex items-start justify-between border-b border-[#E1E4E2] bg-white px-5 py-4"><div><p className="text-xs font-semibold text-[#287D73]">{ticket.id}</p><h2 id="ticket-panel-title" className="mt-1 text-base font-semibold">{ticket.subject}</h2></div><button onClick={onClose} className="p-2 text-[#68747C] hover:bg-[#F5F5F1]" aria-label="Close ticket details"><X size={18} /></button></div>
     <div className="space-y-6 p-5">
       <div><p className="text-xs font-semibold uppercase tracking-wide text-[#68747C]">Complaint</p><p className="mt-2 text-sm leading-6">{ticket.description}</p></div>
-      <div className="grid grid-cols-2 gap-4 border-y border-[#E1E4E2] py-4"><Detail label="Customer" value={ticket.customer} /><Detail label="Email" value={ticket.customerEmail} /><Detail label="Department" value={departmentLabels[ticket.department]} /><Detail label="Priority" value={priorityLabels[ticket.priority]} /><Detail label="Assigned to" value={ticket.assignedTo} /><Detail label="SLA deadline" value={ticket.slaDeadline} /><Detail label="Order ID" value={ticket.orderId ?? "Not provided"} /><Detail label="Shipment ID" value={ticket.shipmentId ?? "Not provided"} /></div>
+      <div className="grid grid-cols-2 gap-4 border-y border-[#E1E4E2] py-4"><Detail label="Customer" value={ticket.customer} /><Detail label="Email" value={ticket.customerEmail} /><Detail label="Department" value={departmentLabels[ticket.department]} /><Detail label="Priority" value={priorityLabels[ticket.priority]} /><Detail label="Assigned to" value={ticket.assignedTo} /><Detail label="SLA deadline" value={ticket.slaDeadline} /><Detail label="Order ID" value={ticket.orderId ?? "Not provided"} /><Detail label="Shipment ID" value={ticket.shipmentId ?? "Not provided"} />{ticket.factoryLocation && <Detail label="Factory location" value={ticket.factoryLocation} />}{ticket.origin && <Detail label="Origin" value={ticket.origin} />}{ticket.destination && <Detail label="Destination" value={ticket.destination} />}{ticket.proofOfDeliveryReference && <Detail label="Proof of delivery" value={ticket.proofOfDeliveryReference} />}</div>
       <div className="flex items-center justify-between"><PriorityIndicator priority={ticket.priority} /><StatusBadge status={ticket.status} /></div>
       {!customerView && <div className="space-y-3">
+        {systemAdmin && <>
+          <label className="block text-xs font-semibold text-[#68747C]">Transfer department<select value={ticket.department} onChange={(event) => { void updateTicket(ticket.id, { department: event.target.value as Department }); }} className="mt-2 w-full border border-[#E1E4E2] bg-white px-3 py-2 text-sm font-normal text-[#172B3A]"><option value="OPERATIONS">Operations</option><option value="FACTORY">Factory</option><option value="LOGISTICS">Logistics</option></select></label>
+          <label className="block text-xs font-semibold text-[#68747C]">Set priority<select value={ticket.priority} onChange={(event) => { void updateTicket(ticket.id, { priority: event.target.value as Priority }); }} className="mt-2 w-full border border-[#E1E4E2] bg-white px-3 py-2 text-sm font-normal text-[#172B3A]"><option value="CRITICAL">Critical</option><option value="HIGH">High</option><option value="MEDIUM">Medium</option><option value="LOW">Low</option></select></label>
+        </>}
         <label className="block text-xs font-semibold text-[#68747C]">Update status<select value={ticket.status} onChange={(event) => { void updateStatus(ticket.id, event.target.value as TicketStatus); }} className="mt-2 w-full border border-[#E1E4E2] bg-white px-3 py-2 text-sm font-normal text-[#172B3A]">{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label className="block text-xs font-semibold text-[#68747C]">Assign employee<select value={ticket.assignedToId ?? ""} onChange={(event) => { void assignTicket(ticket.id, event.target.value); }} className="mt-2 w-full border border-[#E1E4E2] bg-white px-3 py-2 text-sm font-normal text-[#172B3A]"><option value="">Unassigned</option>{departmentMembers.map((member) => <option key={member.id} value={member.id}>{member.fullName}</option>)}</select></label>
         {departmentMembers.length === 0 && <p className="text-xs text-[#68747C]">No assignable employees are provisioned for this department yet.</p>}

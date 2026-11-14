@@ -1,6 +1,6 @@
 # NexusFlow Ticket Triager
 
-NexusFlow is an operational ticket management app for customers, factory teams, logistics teams, and operations administrators. It provides role-based workspaces for submitting, routing, tracking, and resolving service tickets, with activity history, assignments, and workload views.
+NexusFlow is an operational ticket management app for customers, factory teams, logistics teams, operations administrators, and one Central Admin. It provides role-based workspaces for submitting, routing, tracking, and resolving service tickets, with activity history, assignments, and workload views.
 
 The current application lives in [`nexusflow/apps/web`](nexusflow/apps/web). It is built with Next.js, React, TypeScript, Tailwind CSS, and Supabase. When Supabase is not configured, the web app runs with browser-local demo data; that fallback is intended for development only.
 
@@ -8,6 +8,7 @@ The current application lives in [`nexusflow/apps/web`](nexusflow/apps/web). It 
 
 - Customer registration, sign-in, ticket submission, and ticket tracking
 - Separate factory, logistics, and operations workspaces
+- A platform-wide Central Admin console at `/admin`
 - Ticket status, priority, assignment, internal notes, and customer messages
 - Supabase Auth, PostgreSQL persistence, realtime updates, and row-level security
 - Demo mode for exploring the interface without a Supabase project
@@ -63,8 +64,9 @@ The database setup, employee provisioning example, and security-test guidance ar
 | Factory agent | `/factory` |
 | Logistics agent | `/logistics` |
 | Operations admin | `/operations` |
+| Central Admin (`SYSTEM_ADMIN`) | `/admin` |
 
-Access is determined from the protected `profiles` table and enforced by database row-level security. Employee access requires trusted profile provisioning.
+The `SYSTEM_ADMIN` role is reserved for the designated verified account `f20230006@hyderabad.bits-pilani.ac.in`. Access is determined from the authenticated user's protected `profiles` row, checked on the server, and enforced by database row-level security. Employee access requires trusted profile provisioning.
 
 ## Security notes
 

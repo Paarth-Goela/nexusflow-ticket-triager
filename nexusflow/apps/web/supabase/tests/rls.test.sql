@@ -3,7 +3,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select extensions.plan(10);
+select extensions.plan(16);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password,
@@ -24,7 +24,10 @@ insert into auth.users (
    now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Logistics Agent"}', now(), now()),
   ('00000000-0000-0000-0000-000000000000', '10000000-0000-0000-0000-000000000005',
    'authenticated', 'authenticated', 'ops@nexusflow.test', 'test-password',
-   now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Operations Admin"}', now(), now());
+   now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Operations Admin"}', now(), now()),
+  ('00000000-0000-0000-0000-000000000000', '10000000-0000-0000-0000-000000000006',
+   'authenticated', 'authenticated', 'f20230006@hyderabad.bits-pilani.ac.in', 'test-password',
+   now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Central Admin"}', now(), now());
 
 update public.profiles
 set role = 'FACTORY_AGENT', department = 'FACTORY'
@@ -37,6 +40,11 @@ where id = '10000000-0000-0000-0000-000000000004';
 update public.profiles
 set role = 'OPERATIONS_ADMIN', department = 'OPERATIONS'
 where id = '10000000-0000-0000-0000-000000000005';
+
+-- Trusted provisioning step: signup never grants SYSTEM_ADMIN.
+update public.profiles
+set role = 'SYSTEM_ADMIN', department = 'OPERATIONS'
+where id = '10000000-0000-0000-0000-000000000006';
 
 insert into public.tickets (
   ticket_number, customer_id, subject, description, customer_email, category, department
@@ -78,6 +86,12 @@ select extensions.throws_ok(
   'P0001',
   'Profile roles and departments are provisioned by trusted administration',
   'A customer cannot promote their own role'
+);
+select extensions.throws_ok(
+  $$update public.profiles set role = 'SYSTEM_ADMIN', department = 'OPERATIONS' where id = '10000000-0000-0000-0000-000000000001'$$,
+  'P0001',
+  'Profile roles and departments are provisioned by trusted administration',
+  'A customer cannot promote themselves to SYSTEM_ADMIN'
 );
 select extensions.throws_ok(
   $$update public.profiles set department = 'FACTORY' where id = '10000000-0000-0000-0000-000000000001'$$,
@@ -132,6 +146,40 @@ select extensions.is(
   (select count(*)::integer from public.tickets where ticket_number in ('TEST-CUSTOMER-A', 'TEST-CUSTOMER-B')),
   2,
   'Operations administrators can read tickets across departments'
+);
+
+select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000006', true);
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000006","role":"authenticated"}', true);
+select extensions.is(
+  (select role::text from public.profiles where id = auth.uid()),
+  'SYSTEM_ADMIN',
+  'The designated verified account receives SYSTEM_ADMIN from its database profile'
+);
+select extensions.is(
+  (select count(*)::integer from public.profiles),
+  6,
+  'SYSTEM_ADMIN can read every customer and employee profile'
+);
+select extensions.is(
+  (select count(*)::integer from public.profiles where role = 'SYSTEM_ADMIN'),
+  1,
+  'Only one profile has SYSTEM_ADMIN access'
+);
+select extensions.is(
+  (select count(*)::integer from public.ticket_messages where visibility = 'INTERNAL'),
+  1,
+  'SYSTEM_ADMIN can read internal notes across departments'
+);
+
+update public.tickets
+set department = 'LOGISTICS', priority = 'CRITICAL', priority_score = 100,
+    status = 'IN_PROGRESS', assigned_to = '10000000-0000-0000-0000-000000000004'
+where ticket_number = 'TEST-CUSTOMER-A';
+select extensions.is(
+  (select department::text || ':' || priority::text || ':' || status::text || ':' || assigned_to::text
+   from public.tickets where ticket_number = 'TEST-CUSTOMER-A'),
+  'LOGISTICS:CRITICAL:IN_PROGRESS:10000000-0000-0000-0000-000000000004',
+  'SYSTEM_ADMIN can transfer and update tickets across departments'
 );
 
 select * from extensions.finish();

@@ -14,12 +14,13 @@ npx supabase db push
 
 If `supabase/config.toml` already exists, skip `npx supabase init`. The init command creates local CLI configuration; it does not replace the existing SQL migrations.
 
-The System Admin Console adds two migrations after the existing security hardening migrations:
+The System Admin Console adds three migrations after the existing security hardening migrations:
 
 - `20261114010000_add_system_admin_role.sql`
 - `20261114020000_system_admin_access.sql`
+- `20261114030000_designated_system_admin.sql`
 
-Review both SQL files before applying them. They extend the existing role enum and RLS policies; they do not delete ticket or profile data. The project currently used for NexusFlow has previously been identified as production, so use a separate development Supabase project for experimentation whenever possible.
+Review the SQL files before applying them. They extend the existing role enum and RLS policies and designate the single Central Admin account; they retain existing ticket/profile rows and adjust any other `SYSTEM_ADMIN` profile to the existing `OPERATIONS_ADMIN` role. The project currently used for NexusFlow has previously been identified as production, so use a separate development Supabase project for experimentation whenever possible.
 
 Verify migration history after applying:
 
@@ -36,11 +37,11 @@ npx supabase test db
 
 Do not run fixture-based security tests against production data.
 
-## Customer, employee and system administrator roles
+## Customer, employee and Central Admin roles
 
 New signups are provisioned as `CUSTOMER` by the database trigger. Signup metadata is used only for the display name; it never determines authorization.
 
-Employee and system administrator roles must be provisioned by a trusted administrator through the Supabase SQL Editor or a server-side administrative process. Never expose the service-role key in browser code or a `NEXT_PUBLIC_*` variable.
+Employee roles must be provisioned by a trusted administrator through the Supabase SQL Editor or a server-side administrative process. Never expose the service-role key in browser code or a `NEXT_PUBLIC_*` variable.
 
 ### Provision a Factory agent
 
@@ -62,26 +63,33 @@ set role = 'OPERATIONS_ADMIN',
 where email = 'operations-admin@example.com';
 ```
 
-### Provision the first System Admin
+### Central Admin account
 
-Create and verify the account through the normal signup flow first. Then run this statement manually in the Supabase SQL Editor, replacing the email:
+The only account eligible for `SYSTEM_ADMIN` is `f20230006@hyderabad.bits-pilani.ac.in`. The `20261114030000_designated_system_admin.sql` migration assigns that role to its already-verified profile when the account exists. Public signup always creates a `CUSTOMER`; it never grants `SYSTEM_ADMIN`, even for this address. The database enforces that no other profile can hold `SYSTEM_ADMIN`.
 
-```sql
-update public.profiles
-set role = 'SYSTEM_ADMIN',
-    department = 'OPERATIONS'
-where email = 'your-admin-email@example.com';
-```
-
-Confirm the result:
+After applying the migration and verifying the account, confirm provisioning with:
 
 ```sql
 select email, role, department
 from public.profiles
-where role = 'SYSTEM_ADMIN';
+where lower(email) = 'f20230006@hyderabad.bits-pilani.ac.in';
 ```
 
-Do not add a public signup option for `SYSTEM_ADMIN`. Do not allow an authenticated user to promote themselves. The role is protected by the profile trigger and RLS.
+The profile must show `SYSTEM_ADMIN` and `OPERATIONS`. If the account is created after the migration, first finish registration and email verification, then run this statement as a trusted database administrator:
+
+```sql
+update public.profiles p
+set role = 'SYSTEM_ADMIN',
+    department = 'OPERATIONS'
+from auth.users u
+where p.id = u.id
+  and lower(u.email) = 'f20230006@hyderabad.bits-pilani.ac.in'
+  and u.email_confirmed_at is not null;
+```
+
+Never run that statement from the browser or with credentials exposed to the frontend. Do not promote another account as a temporary substitute.
+
+The Central Admin workspace is `/admin`. Authentication and role are read from the database profile on the server, while RLS controls all Supabase data access.
 
 Valid role/department combinations:
 
@@ -89,9 +97,9 @@ Valid role/department combinations:
 - `FACTORY_AGENT`: department must be `FACTORY`
 - `LOGISTICS_AGENT`: department must be `LOGISTICS`
 - `OPERATIONS_ADMIN`: department must be `OPERATIONS`
-- `SYSTEM_ADMIN`: department must be `OPERATIONS` (administrative profile classification only)
+- `SYSTEM_ADMIN`: department must be `OPERATIONS` and profile email must match the single designated account
 
-The System Admin role has platform-wide read access to profiles, tickets, messages, events and assignment history. It can administer ticket records across departments. Operations Admin retains operational ticket coordination but does not receive the System Admin portal or user-directory administration.
+The System Admin role has platform-wide read access to profiles, tickets, messages, events and assignment history. It can administer ticket records across departments. Operations Admin retains its existing operational ticket coordination permissions and does not receive the `/admin` workspace. Role changes remain restricted to trusted database provisioning; profile editing and signup cannot assign administrator access.
 
 ## Environment
 

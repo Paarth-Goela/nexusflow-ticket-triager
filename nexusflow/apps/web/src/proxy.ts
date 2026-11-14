@@ -21,8 +21,17 @@ function redirectWithSession(url: URL, cookies: RefreshedCookie[]) {
 
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request });
+  const pathname = request.nextUrl.pathname;
   const env = getSupabaseEnv();
-  if (!env) return response;
+  if (!env) {
+    if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+      const login = request.nextUrl.clone();
+      login.pathname = "/login";
+      login.search = "?error=admin_requires_auth";
+      return NextResponse.redirect(login);
+    }
+    return response;
+  }
 
   const refreshedCookies: RefreshedCookie[] = [];
   const supabase = createServerClient(env.url, env.publishableKey, {
@@ -38,7 +47,6 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const pathname = request.nextUrl.pathname;
   const isProtectedPath = ["/customer", "/factory", "/operations", "/logistics", "/admin"].some(
     (path) => pathname === path || pathname.startsWith(`${path}/`),
   );

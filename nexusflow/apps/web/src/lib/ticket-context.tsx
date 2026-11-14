@@ -73,7 +73,7 @@ function withDefaults(ticket: Ticket): Ticket {
 }
 
 function toActivityType(value: unknown): TicketActivity["type"] {
-  if (value === "STATUS_CHANGE" || value === "ASSIGNMENT" || value === "PRIORITY_CHANGE" || value === "INTERNAL_NOTE" || value === "CUSTOMER_MESSAGE") {
+  if (value === "STATUS_CHANGE" || value === "ASSIGNMENT" || value === "PRIORITY_CHANGE" || value === "DEPARTMENT_CHANGE" || value === "INTERNAL_NOTE" || value === "CUSTOMER_MESSAGE") {
     return value;
   }
   return "CREATED";
@@ -151,6 +151,9 @@ function fromDatabase(
     slaDeadline: row.sla_deadline ? String(row.sla_deadline) : "Not set",
     orderId: row.order_id ? String(row.order_id) : undefined,
     shipmentId: row.shipment_id ? String(row.shipment_id) : undefined,
+    factoryLocation: row.factory_location ? String(row.factory_location) : undefined,
+    origin: row.origin ? String(row.origin) : undefined,
+    destination: row.destination ? String(row.destination) : undefined,
     proofOfDeliveryReference: row.proof_of_delivery_reference ? String(row.proof_of_delivery_reference) : undefined,
     internalNotes: ticketMessages.filter((item) => item.visibility === "INTERNAL").map((item) => String(item.message)),
     customerMessages: ticketMessages.filter((item) => item.visibility === "PUBLIC").map((item) => String(item.message)),
@@ -347,14 +350,44 @@ export function TicketProvider({ children }: { children: ReactNode }) {
     const current = state.find((ticket) => ticket.id === id);
     if (!current) return;
 
+    const nextDepartment = updates.department ?? current.department;
+    const departmentChanged = nextDepartment !== current.department;
+    const nextAssigneeId = departmentChanged && updates.assignedToId === undefined
+      ? ""
+      : updates.assignedToId;
+    if (nextAssigneeId) {
+      const validMember = teamMembers.some((member) => member.id === nextAssigneeId && member.department === nextDepartment);
+      if (!validMember) {
+        setError("Choose an employee from the ticket's department.");
+        return;
+      }
+    }
+
     if (!supabase) {
-      replaceTicket({ ...current, ...updates, updatedAt: "Just now" });
+      replaceTicket({
+        ...current,
+        ...updates,
+        ...(departmentChanged && updates.assignedToId === undefined ? { assignedToId: undefined, assignedTo: "Unassigned" } : {}),
+        ...(nextAssigneeId !== undefined ? {
+          assignedToId: nextAssigneeId || undefined,
+          assignedTo: teamMembers.find((member) => member.id === nextAssigneeId)?.fullName ?? "Unassigned",
+        } : {}),
+        updatedAt: "Just now",
+      });
       return;
     }
 
     const databaseUpdates: Record<string, unknown> = {};
     if (updates.proofOfDeliveryReference !== undefined) databaseUpdates.proof_of_delivery_reference = updates.proofOfDeliveryReference;
     if (updates.slaDeadline !== undefined) databaseUpdates.sla_deadline = updates.slaDeadline;
+    if (updates.department !== undefined) databaseUpdates.department = updates.department;
+    if (updates.priority !== undefined) {
+      databaseUpdates.priority = updates.priority;
+      databaseUpdates.priority_score = updates.priorityScore ?? ({ CRITICAL: 100, HIGH: 80, MEDIUM: 50, LOW: 25 } as const)[updates.priority];
+    }
+    if (updates.priorityScore !== undefined && updates.priority === undefined) databaseUpdates.priority_score = updates.priorityScore;
+    if (nextAssigneeId !== undefined) databaseUpdates.assigned_to = nextAssigneeId || null;
+    else if (departmentChanged) databaseUpdates.assigned_to = null;
     if (Object.keys(databaseUpdates).length === 0) return;
 
     const result = await supabase.from("tickets").update(databaseUpdates).eq("ticket_number", id).select("*").single();
@@ -362,8 +395,81 @@ export function TicketProvider({ children }: { children: ReactNode }) {
       setError(`Ticket update failed: ${result.error.message}`);
       return;
     }
-    replaceTicket({ ...current, ...updates, updatedAt: nowLabel() });
-  }, [replaceTicket, state, supabase]);
+
+    const nextAssignedMember = teamMembers.find((member) => member.id === nextAssigneeId && member.department === nextDepartment);
+    const updatedTicket: Ticket = {
+      ...current,
+      ...updates,
+      ...(departmentChanged && updates.assignedToId === undefined ? { assignedToId: undefined, assignedTo: "Unassigned" } : {}),
+      ...(nextAssigneeId !== undefined ? {
+        assignedToId: nextAssigneeId || undefined,
+        assignedTo: nextAssignedMember?.fullName ?? "Unassigned",
+      } : {}),
+      updatedAt: nowLabel(),
+    };
+
+    const auditEvents: { type: "DEPARTMENT_CHANGE" | "PRIORITY_CHANGE"; previous: string; next: string; description: string }[] = [];
+    if (departmentChanged) {
+      auditEvents.push({
+        type: "DEPARTMENT_CHANGE",
+        previous: current.department,
+        next: nextDepartment,
+        description: `Department changed from ${current.department} to ${nextDepartment}`,
+      });
+    }
+    if (updates.priority !== undefined && updates.priority !== current.priority) {
+      auditEvents.push({
+        type: "PRIORITY_CHANGE",
+        previous: current.priority,
+        next: updates.priority,
+        description: `Priority changed from ${current.priority} to ${updates.priority}`,
+      });
+    }
+
+    const localEvents: TicketActivity[] = auditEvents.map((event) => ({
+      id: `${id}-${event.type.toLowerCase()}-${Date.now()}`,
+      type: event.type,
+      actor: "Current team member",
+      message: event.description,
+      timestamp: nowLabel(),
+      public: false,
+    }));
+    if (departmentChanged && (current.assignedToId || current.assignedTo !== "Unassigned")) {
+      localEvents.push({
+        id: `${id}-assignment-cleared-${Date.now()}`,
+        type: "ASSIGNMENT",
+        actor: "Current team member",
+        message: "Assignment cleared because the ticket moved to another department",
+        timestamp: nowLabel(),
+        public: false,
+      });
+    }
+    replaceTicket({ ...updatedTicket, activity: [...(current.activity ?? []), ...localEvents] });
+
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user || !current.databaseId) return;
+    const eventWrites = auditEvents.map((event) => supabase.from("ticket_events").insert({
+      ticket_id: current.databaseId,
+      actor_id: userData.user.id,
+      event_type: event.type,
+      previous_value: event.type === "DEPARTMENT_CHANGE" ? { department: event.previous } : { priority: event.previous },
+      new_value: event.type === "DEPARTMENT_CHANGE" ? { department: event.next } : { priority: event.next },
+      description: event.description,
+    }));
+    const writes = await Promise.all(eventWrites);
+    const failedWrite = writes.find((write) => write.error);
+    if (failedWrite?.error) setError(`Ticket updated, but audit history failed: ${failedWrite.error.message}`);
+
+    if (departmentChanged && (current.assignedToId || current.assignedTo !== "Unassigned")) {
+      const assignmentWrite = await supabase.from("ticket_assignments").insert({
+        ticket_id: current.databaseId,
+        department: nextDepartment,
+        assigned_user_id: null,
+        assigned_by: userData.user.id,
+      });
+      if (assignmentWrite.error) setError(`Department changed, but assignment history failed: ${assignmentWrite.error.message}`);
+    }
+  }, [replaceTicket, state, supabase, teamMembers]);
 
   const updateStatus = useCallback(async (id: string, status: TicketStatus) => {
     setError(null);
