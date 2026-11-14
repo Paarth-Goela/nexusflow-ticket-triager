@@ -10,6 +10,7 @@ The current application lives in [`nexusflow/apps/web`](nexusflow/apps/web). It 
 - Separate factory, logistics, and operations workspaces
 - A platform-wide Central Admin console at `/admin`
 - Ticket status, priority, assignment, internal notes, and customer messages
+- Deterministic category routing and workload-based employee assignment
 - Supabase Auth, PostgreSQL persistence, realtime updates, and row-level security
 - Demo mode for exploring the interface without a Supabase project
 
@@ -56,6 +57,8 @@ npm run start    # Serve the production build
 
 The database setup, employee provisioning example, and security-test guidance are in [`nexusflow/apps/web/supabase/README.md`](nexusflow/apps/web/supabase/README.md). The RLS checklist is in [`nexusflow/apps/web/supabase/rls-tests.sql`](nexusflow/apps/web/supabase/rls-tests.sql).
 
+Ticket categories are routed deterministically: production categories go to Factory, shipment and delivery categories go to Logistics, and General Operations or unsupported categories go to Operations. Active employees in the destination department are assigned by lowest open-ticket workload, with employee ID as the stable tie-breaker.
+
 ## Roles and routes
 
 | Role | Workspace |
@@ -66,7 +69,7 @@ The database setup, employee provisioning example, and security-test guidance ar
 | Operations admin | `/operations` |
 | Central Admin (`SYSTEM_ADMIN`) | `/admin` |
 
-The `SYSTEM_ADMIN` role is reserved for the designated verified account `f20230006@hyderabad.bits-pilani.ac.in`. Access is determined from the authenticated user's protected `profiles` row, checked on the server, and enforced by database row-level security. Employee access requires trusted profile provisioning.
+The `SYSTEM_ADMIN` role is reserved for the single designated verified account `f20230006@hyderabad.bits-pilani.ac.in`. Access is determined from the authenticated user's protected `profiles` row, checked on the server, and enforced by database row-level security. Operations Admin is restricted to Operations records; employee access requires trusted profile provisioning.
 
 ## Security notes
 

@@ -91,6 +91,8 @@ Never run that statement from the browser or with credentials exposed to the fro
 
 The Central Admin workspace is `/admin`. Authentication and role are read from the database profile on the server, while RLS controls all Supabase data access.
 
+Ticket routing is database-enforced and deterministic. The selected category resolves to Factory, Logistics, or Operations; unsupported categories default to Operations. Active employees in the destination department are assigned by lowest open-ticket workload, with employee ID as the stable tie-breaker. Department transfers use the atomic `public.transfer_ticket` RPC, which validates authorization, reassigns when possible, and records the department-change history.
+
 Valid role/department combinations:
 
 - `CUSTOMER`: department must be NULL
@@ -99,7 +101,7 @@ Valid role/department combinations:
 - `OPERATIONS_ADMIN`: department must be `OPERATIONS`
 - `SYSTEM_ADMIN`: department must be `OPERATIONS` and profile email must match the single designated account
 
-The System Admin role has platform-wide read access to profiles, tickets, messages, events and assignment history. It can administer ticket records across departments. Operations Admin retains its existing operational ticket coordination permissions and does not receive the `/admin` workspace. Role changes remain restricted to trusted database provisioning; profile editing and signup cannot assign administrator access.
+The Central Admin (`SYSTEM_ADMIN`) role has platform-wide read and management access to profiles, tickets, messages, events and assignment history. Operations Admin remains restricted to Operations department records and does not receive the `/admin` workspace. Role changes remain restricted to trusted database provisioning; profile editing and signup cannot assign administrator access.
 
 ## Environment
 

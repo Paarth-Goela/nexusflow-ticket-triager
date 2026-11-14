@@ -3,7 +3,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select extensions.plan(16);
+select extensions.plan(17);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password,
@@ -144,8 +144,13 @@ select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000005
 select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000005","role":"authenticated"}', true);
 select extensions.is(
   (select count(*)::integer from public.tickets where ticket_number in ('TEST-CUSTOMER-A', 'TEST-CUSTOMER-B')),
-  2,
-  'Operations administrators can read tickets across departments'
+  0,
+  'Operations administrators cannot read tickets outside Operations'
+);
+select extensions.is(
+  (select count(*)::integer from public.tickets where department = 'OPERATIONS'),
+  0,
+  'Operations administrators see only Operations tickets'
 );
 
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000006', true);

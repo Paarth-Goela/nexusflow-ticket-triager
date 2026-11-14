@@ -30,7 +30,7 @@ const roleLabels: Record<DemoRole, string> = {
   FACTORY_AGENT: "Factory agent",
   LOGISTICS_AGENT: "Logistics agent",
   OPERATIONS_ADMIN: "Operations admin",
-  SYSTEM_ADMIN: "System admin",
+  SYSTEM_ADMIN: "Central Admin",
 };
 
 const departmentLabels: Record<Department, string> = {
@@ -141,14 +141,14 @@ function AdminConsole() {
         </nav>
       </div>
       <div className="mt-auto border-t border-white/10 p-4">
-        <div className="flex items-center gap-2 px-2 py-2"><ShieldCheck size={16} className="text-[#70B5A9]" /><div><p className="text-xs font-semibold">System Admin</p><p className="text-[10px] text-white/50">Platform-wide access</p></div></div>
+        <div className="flex items-center gap-2 px-2 py-2"><ShieldCheck size={16} className="text-[#70B5A9]" /><div><p className="text-xs font-semibold">Central Admin</p><p className="text-[10px] text-white/50">Platform-wide access</p></div></div>
         <div className="mt-2"><LogoutButton /></div>
       </div>
     </aside>
 
     <div className="lg:pl-64">
       <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#E1E4E2] bg-white px-5 sm:px-8">
-        <div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center bg-[#287D73] text-sm font-bold text-white lg:hidden">N</span><div><p className="text-sm font-semibold">Platform control</p><p className="text-[10px] text-[#68747C]">NexusFlow / System Admin</p></div></div>
+        <div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center bg-[#287D73] text-sm font-bold text-white lg:hidden">N</span><div><p className="text-sm font-semibold">Platform control</p><p className="text-[10px] text-[#68747C]">NexusFlow / Central Admin</p></div></div>
         <div className="flex items-center gap-3"><span className="hidden text-xs text-[#68747C] sm:inline">Restricted administrator workspace</span><div className="lg:hidden"><LogoutButton /></div></div>
       </header>
 
@@ -207,7 +207,7 @@ function AdminConsole() {
           <div className="divide-y divide-[#E1E4E2]">{recentActivity.map((item) => <div key={item.id} className="flex gap-3 px-5 py-4"><span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center bg-[#F1F4F1] text-[#287D73]"><Activity size={14} /></span><div className="min-w-0 flex-1"><p className="text-sm">{item.message}</p><p className="mt-1 text-xs text-[#68747C]">{item.actor} · {dateLabel(item.timestamp)}</p></div><span className="shrink-0 text-[10px] text-[#68747C]">{item.public ? "Customer-visible" : "Internal"}</span></div>)}{recentActivity.length === 0 && <p className="p-5 text-sm text-[#68747C]">No ticket activity has been recorded yet.</p>}</div>
         </section>}
 
-        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-[#E1E4E2] pt-4 text-[11px] text-[#68747C]"><span>NexusFlow System Administration</span><span>Platform-wide visibility · Role-protected access</span></footer>
+        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-[#E1E4E2] pt-4 text-[11px] text-[#68747C]"><span>NexusFlow Central Administration</span><span>Platform-wide visibility · Role-protected access</span></footer>
       </main>
     </div>
     {selectedTicket && <TicketDetailPanel systemAdmin ticket={tickets.find((ticket) => ticket.id === selectedTicket.id) ?? selectedTicket} onClose={() => setSelectedTicket(null)} />}

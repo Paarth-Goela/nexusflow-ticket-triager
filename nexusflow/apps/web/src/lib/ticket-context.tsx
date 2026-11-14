@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState, type ReactNode } from "react";
 import { tickets as initialTickets } from "./mock-data";
+import { resolveAssignment, resolveDepartment } from "./routing";
 import { createClient } from "./supabase/client";
 import type { Department, DemoRole, Ticket, TicketActivity, TicketStatus } from "./types";
 
@@ -12,6 +13,7 @@ export interface TeamMember {
   fullName: string;
   department: Department;
   role: Exclude<DemoRole, "CUSTOMER">;
+  isActive: boolean;
 }
 
 type TicketInput = Pick<Ticket, "subject" | "description" | "customer" | "customerEmail" | "category"> &
@@ -41,10 +43,10 @@ type TicketContextValue = {
 const TicketContext = createContext<TicketContextValue | null>(null);
 
 const demoTeam: TeamMember[] = [
-  { id: "demo-maya", fullName: "Maya Chen", department: "FACTORY", role: "FACTORY_AGENT" },
-  { id: "demo-jon", fullName: "Jon Bell", department: "FACTORY", role: "FACTORY_AGENT" },
-  { id: "demo-elias", fullName: "Elias Morgan", department: "LOGISTICS", role: "LOGISTICS_AGENT" },
-  { id: "demo-priya", fullName: "Priya Shah", department: "OPERATIONS", role: "OPERATIONS_ADMIN" },
+  { id: "demo-maya", fullName: "Maya Chen", department: "FACTORY", role: "FACTORY_AGENT", isActive: true },
+  { id: "demo-jon", fullName: "Jon Bell", department: "FACTORY", role: "FACTORY_AGENT", isActive: true },
+  { id: "demo-elias", fullName: "Elias Morgan", department: "LOGISTICS", role: "LOGISTICS_AGENT", isActive: true },
+  { id: "demo-priya", fullName: "Priya Shah", department: "OPERATIONS", role: "OPERATIONS_ADMIN", isActive: true },
 ];
 
 function reducer(state: Ticket[], action: Action) {
@@ -73,7 +75,7 @@ function withDefaults(ticket: Ticket): Ticket {
 }
 
 function toActivityType(value: unknown): TicketActivity["type"] {
-  if (value === "STATUS_CHANGE" || value === "ASSIGNMENT" || value === "PRIORITY_CHANGE" || value === "DEPARTMENT_CHANGE" || value === "INTERNAL_NOTE" || value === "CUSTOMER_MESSAGE") {
+  if (value === "STATUS_CHANGE" || value === "ASSIGNMENT" || value === "PRIORITY_CHANGE" || value === "DEPARTMENT_CHANGE" || value === "INTERNAL_NOTE" || value === "CUSTOMER_MESSAGE" || value === "ROUTED") {
     return value;
   }
   return "CREATED";
@@ -184,7 +186,7 @@ export function TicketProvider({ children }: { children: ReactNode }) {
 
     const [ticketResult, profileResult] = await Promise.all([
       supabase.from("tickets").select("*").order("updated_at", { ascending: false }),
-      supabase.from("profiles").select("id, full_name, department, role"),
+      supabase.from("profiles").select("id, full_name, department, role, is_active"),
     ]);
 
     if (ticketResult.error) {
@@ -223,12 +225,13 @@ export function TicketProvider({ children }: { children: ReactNode }) {
     const members: TeamMember[] = profiles.flatMap((profile) => {
       const role = String(profile.role);
       const department = profile.department as Department | null;
-      if (!department || !["FACTORY_AGENT", "LOGISTICS_AGENT", "OPERATIONS_ADMIN"].includes(role)) return [];
+      if (!department || profile.is_active === false || !["FACTORY_AGENT", "LOGISTICS_AGENT", "OPERATIONS_ADMIN"].includes(role)) return [];
       return [{
         id: String(profile.id),
         fullName: String(profile.full_name || "Team member"),
         department,
         role: role as TeamMember["role"],
+        isActive: profile.is_active !== false,
       }];
     });
 
@@ -292,17 +295,28 @@ export function TicketProvider({ children }: { children: ReactNode }) {
   const createTicket = useCallback(async (input: TicketInput): Promise<Ticket | null> => {
     setError(null);
     if (!supabase) {
+      const department = resolveDepartment(input.category);
+      const assigneeId = resolveAssignment(department, demoTeam.map((member) => ({
+        id: member.id,
+        department: member.department,
+        isActive: member.isActive,
+        openTicketCount: state.filter((ticket) => (
+          ticket.assignedToId === member.id && !["RESOLVED", "CLOSED"].includes(ticket.status)
+        )).length,
+      })));
+      const assignee = demoTeam.find((member) => member.id === assigneeId);
       const created = withDefaults({
         ...input,
         id: `NFX-${Math.floor(2000 + Math.random() * 8000)}`,
-        department: input.department ?? "OPERATIONS",
+        department,
         priority: "MEDIUM",
         priorityScore: 50,
         status: "NEW",
-        assignedTo: "Unassigned",
+        assignedTo: assignee?.fullName ?? "Unassigned",
+        assignedToId: assignee?.id,
         createdAt: nowLabel(),
         updatedAt: nowLabel(),
-        aiSummary: "Simulated triage pending real AI service integration.",
+        aiSummary: "Deterministically routed from the selected category.",
         slaDeadline: "Within 24 hours",
       });
       dispatch({ type: "replace", tickets: [created, ...state] });
@@ -361,6 +375,38 @@ export function TicketProvider({ children }: { children: ReactNode }) {
         setError("Choose an employee from the ticket's department.");
         return;
       }
+    }
+
+    if (supabase && departmentChanged) {
+      const { data, error: transferError } = await supabase.rpc("transfer_ticket", {
+        ticket_number_input: id,
+        destination_department: nextDepartment,
+      });
+      if (transferError || !data) {
+        setError(`Ticket transfer failed: ${transferError?.message ?? "No ticket was returned"}`);
+        return;
+      }
+      const transferred = data as Record<string, unknown>;
+      const transferredAssigneeId = transferred.assigned_to ? String(transferred.assigned_to) : undefined;
+      const transferredAssignee = teamMembers.find((member) => member.id === transferredAssigneeId);
+      const transferActivity: TicketActivity = {
+        id: `${id}-department-${Date.now()}`,
+        type: "DEPARTMENT_CHANGE",
+        actor: "Current team member",
+        message: `Department changed from ${current.department} to ${nextDepartment}`,
+        timestamp: String(transferred.updated_at ?? nowLabel()),
+        public: false,
+      };
+      replaceTicket({
+        ...current,
+        department: nextDepartment,
+        assignedToId: transferredAssigneeId,
+        assignedTo: transferredAssignee?.fullName ?? "Unassigned",
+        status: transferred.status as TicketStatus,
+        updatedAt: String(transferred.updated_at ?? nowLabel()),
+        activity: [...(current.activity ?? []), transferActivity],
+      });
+      return;
     }
 
     if (!supabase) {
