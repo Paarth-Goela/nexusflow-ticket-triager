@@ -40,8 +40,7 @@ const departmentLabels: Record<Department, string> = {
 };
 
 function dateLabel(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return value;
 }
 
 function AdminConsole() {
@@ -116,7 +115,7 @@ function AdminConsole() {
 
   const recentActivity = useMemo(() => activities
     .slice()
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()), [activities]);
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp)), [activities]);
 
   const departments: Department[] = ["OPERATIONS", "FACTORY", "LOGISTICS"];
   const maxDepartmentCount = Math.max(1, ...departments.map((department) => tickets.filter((ticket) => ticket.department === department).length));

@@ -18,6 +18,8 @@ test("resolves supported categories deterministically", () => {
   assert.equal(resolveDepartment("Transporter Issue"), "LOGISTICS");
   assert.equal(resolveDepartment("Dispatch Issue"), "LOGISTICS");
   assert.equal(resolveDepartment("General Operations"), "OPERATIONS");
+  assert.equal(resolveDepartment("Other"), "OPERATIONS");
+  assert.equal(resolveDepartment("Unclassified"), "OPERATIONS");
   assert.equal(resolveDepartment("Unknown category"), "OPERATIONS");
   assert.equal(resolveDepartment("  machine breakdown "), "FACTORY");
   assert.equal(validateDepartment("Shipment Delay", "LOGISTICS"), true);

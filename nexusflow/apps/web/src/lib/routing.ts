@@ -11,7 +11,8 @@ export const routingCategories = [
   "Transporter Issue",
   "Dispatch Issue",
   "General Operations",
-  "Other / Unclassified",
+  "Other",
+  "Unclassified",
 ] as const;
 
 export type RoutingCategory = (typeof routingCategories)[number];
@@ -34,7 +35,8 @@ const departmentByCategory: Record<RoutingCategory, Department> = {
   "Transporter Issue": "LOGISTICS",
   "Dispatch Issue": "LOGISTICS",
   "General Operations": "OPERATIONS",
-  "Other / Unclassified": "OPERATIONS",
+  Other: "OPERATIONS",
+  Unclassified: "OPERATIONS",
 };
 
 function normalizedCategory(category: string) {

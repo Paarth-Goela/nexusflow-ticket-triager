@@ -338,16 +338,14 @@ export function TicketProvider({ children }: { children: ReactNode }) {
       return null;
     }
 
-    const result = await supabase.from("tickets").insert({
-      customer_id: userData.user.id,
-      customer_email: userData.user.email,
-      customer_company: input.customer,
-      order_id: input.orderId ?? null,
-      shipment_id: input.shipmentId ?? null,
-      subject: input.subject,
-      description: input.description,
-      category: input.category,
-    }).select("*").single();
+    const result = await supabase.rpc("create_customer_ticket", {
+      subject_input: input.subject,
+      description_input: input.description,
+      customer_company_input: input.customer,
+      category_input: input.category,
+      order_id_input: input.orderId ?? null,
+      shipment_id_input: input.shipmentId ?? null,
+    });
 
     if (result.error || !result.data) {
       setError(`Ticket creation failed: ${result.error?.message ?? "No ticket was returned"}`);
