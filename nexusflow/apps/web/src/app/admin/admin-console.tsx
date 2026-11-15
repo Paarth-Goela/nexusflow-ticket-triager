@@ -13,7 +13,7 @@ import { StatusBadge } from "@/components/tickets/status-badge";
 import { useTickets } from "@/lib/ticket-context";
 import { createClient } from "@/lib/supabase/client";
 import { isOpen } from "@/lib/utils";
-import type { Department, DemoRole, Ticket } from "@/lib/types";
+import type { Department, DemoRole, Ticket, Urgency } from "@/lib/types";
 
 type Tab = "overview" | "tickets" | "people" | "activity";
 type AdminUser = {
@@ -45,7 +45,6 @@ function dateLabel(value: string) {
 
 function AdminConsole() {
   const { tickets, activities, loading, error } = useTickets();
-  const [clockNow, setClockNow] = useState<number | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -54,15 +53,9 @@ function AdminConsole() {
   const [departmentFilter, setDepartmentFilter] = useState("ALL");
   const [priorityFilter, setPriorityFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [urgencyFilter, setUrgencyFilter] = useState<Urgency | "ALL">("ALL");
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-
-  useEffect(() => {
-    const updateClock = () => setClockNow(Date.now());
-    updateClock();
-    const timer = window.setInterval(updateClock, 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -90,10 +83,10 @@ function AdminConsole() {
 
   const openTickets = tickets.filter(isOpen);
   const criticalTickets = tickets.filter((ticket) => ticket.priority === "CRITICAL" && isOpen(ticket));
-  const overdueTickets = clockNow === null ? [] : tickets.filter((ticket) => {
-    const deadline = Date.parse(ticket.slaDeadline);
-    return isOpen(ticket) && Number.isFinite(deadline) && deadline < clockNow;
-  });
+  const overdueTickets = tickets.filter((ticket) => isOpen(ticket) && Boolean(ticket.overdueSince));
+  const criticalOverdueTickets = overdueTickets.filter((ticket) => ticket.priority === "CRITICAL");
+  const approachingTickets = tickets.filter((ticket) => isOpen(ticket) && ticket.escalationState === "APPROACHING");
+  const severelyOverdueTickets = overdueTickets.filter((ticket) => ticket.escalationState === "SEVERELY_OVERDUE");
   const resolvedTickets = tickets.filter((ticket) => ticket.status === "RESOLVED" || ticket.status === "CLOSED");
   const unassignedTickets = tickets.filter((ticket) => !ticket.assignedToId && ticket.assignedTo === "Unassigned" && isOpen(ticket));
 
@@ -107,11 +100,11 @@ function AdminConsole() {
       const matchesDepartment = departmentFilter === "ALL" || ticket.department === departmentFilter;
       const matchesPriority = priorityFilter === "ALL" || ticket.priority === priorityFilter;
       const matchesStatus = statusFilter === "ALL" || ticket.status === statusFilter;
-      const deadline = Date.parse(ticket.slaDeadline);
-      const matchesOverdue = !overdueOnly || (clockNow !== null && isOpen(ticket) && Number.isFinite(deadline) && deadline < clockNow);
-      return matchesQuery && matchesDepartment && matchesPriority && matchesStatus && matchesOverdue;
+      const matchesUrgency = urgencyFilter === "ALL" || ticket.urgency === urgencyFilter;
+      const matchesOverdue = !overdueOnly || (isOpen(ticket) && Boolean(ticket.overdueSince));
+      return matchesQuery && matchesDepartment && matchesPriority && matchesStatus && matchesUrgency && matchesOverdue;
     });
-  }, [tickets, query, departmentFilter, priorityFilter, statusFilter, overdueOnly, clockNow]);
+  }, [tickets, query, departmentFilter, priorityFilter, statusFilter, urgencyFilter, overdueOnly]);
 
   const recentActivity = useMemo(() => activities
     .slice()
@@ -168,6 +161,19 @@ function AdminConsole() {
             <Metric icon={CheckCircle2} label="Resolved / closed" value={resolvedTickets.length} detail="Completed tickets" tone="success" />
           </section>
 
+          <section className="border border-[#E1E4E2] bg-white">
+            <div className="border-b border-[#E1E4E2] px-5 py-4"><h2 className="text-sm font-semibold">Overdue monitoring</h2><p className="mt-1 text-xs text-[#68747C]">Backend-evaluated SLA urgency and escalation state</p></div>
+            <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">
+              <Metric icon={Clock3} label="Overdue tickets" value={overdueTickets.length} detail="Past resolution SLA" tone={overdueTickets.length ? "critical" : "default"} />
+              <Metric icon={AlertCircle} label="Critical overdue" value={criticalOverdueTickets.length} detail="Immediate Operations attention" tone={criticalOverdueTickets.length ? "critical" : "default"} />
+              <Metric icon={Clock3} label="Approaching breach" value={approachingTickets.length} detail="At 75% of SLA window" />
+              <Metric icon={AlertCircle} label="Severely overdue" value={severelyOverdueTickets.length} detail="At 150% of SLA window" tone={severelyOverdueTickets.length ? "critical" : "default"} />
+            </div>
+            <div className="grid gap-3 border-t border-[#E1E4E2] px-5 py-4 text-xs sm:grid-cols-3">
+              {departments.map((department) => <div key={department}><span className="text-[#68747C]">{departmentLabels[department]}</span><span className="ml-2 font-semibold">{overdueTickets.filter((ticket) => ticket.department === department).length}</span></div>)}
+            </div>
+          </section>
+
           <section className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
             <div className="border border-[#E1E4E2] bg-white">
               <div className="flex items-center justify-between border-b border-[#E1E4E2] px-5 py-4"><div><h2 className="text-sm font-semibold">Department distribution</h2><p className="mt-1 text-xs text-[#68747C]">Current ticket volume by owning team</p></div><button onClick={() => setTab("tickets")} className="text-xs font-semibold text-[#287D73]">View tickets <ArrowUpRight size={13} className="ml-1 inline" /></button></div>
@@ -192,7 +198,7 @@ function AdminConsole() {
         </>}
 
         {tab === "tickets" && <section className="border border-[#E1E4E2] bg-white">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E1E4E2] px-5 py-4"><div><h2 className="text-sm font-semibold">Global ticket register</h2><p className="mt-1 text-xs text-[#68747C]">{filteredTickets.length} of {tickets.length} tickets{overdueOnly ? " · overdue only" : ""}</p></div><div className="flex flex-wrap gap-2"><label className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#68747C]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search tickets" className="w-52 border border-[#E1E4E2] py-2 pl-9 pr-3 text-xs outline-none focus:border-[#287D73]" /></label><select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)} className="border border-[#E1E4E2] bg-white px-3 py-2 text-xs"><option value="ALL">All departments</option><option value="OPERATIONS">Operations</option><option value="FACTORY">Factory</option><option value="LOGISTICS">Logistics</option></select><select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)} className="border border-[#E1E4E2] bg-white px-3 py-2 text-xs"><option value="ALL">All priorities</option>{["CRITICAL","HIGH","MEDIUM","LOW"].map((priority) => <option key={priority} value={priority}>{priority}</option>)}</select><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="border border-[#E1E4E2] bg-white px-3 py-2 text-xs"><option value="ALL">All statuses</option>{["NEW","AI_TRIAGED","ASSIGNED","IN_PROGRESS","WAITING_FOR_TEAM","RESOLVED","CLOSED"].map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}</select><button onClick={() => { setPriorityFilter("ALL"); setOverdueOnly(false); }} className="border border-[#E1E4E2] px-3 py-2 text-xs text-[#52616A]">Clear special filters</button></div></div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E1E4E2] px-5 py-4"><div><h2 className="text-sm font-semibold">Global ticket register</h2><p className="mt-1 text-xs text-[#68747C]">{filteredTickets.length} of {tickets.length} tickets{overdueOnly ? " · overdue only" : ""}</p></div><div className="flex flex-wrap gap-2"><label className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#68747C]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search tickets" className="w-52 border border-[#E1E4E2] py-2 pl-9 pr-3 text-xs outline-none focus:border-[#287D73]" /></label><select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)} className="border border-[#E1E4E2] bg-white px-3 py-2 text-xs"><option value="ALL">All departments</option><option value="OPERATIONS">Operations</option><option value="FACTORY">Factory</option><option value="LOGISTICS">Logistics</option></select><select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)} className="border border-[#E1E4E2] bg-white px-3 py-2 text-xs"><option value="ALL">All priorities</option>{["CRITICAL","HIGH","MEDIUM","LOW"].map((priority) => <option key={priority} value={priority}>{priority}</option>)}</select>          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="border border-[#E1E4E2] bg-white px-3 py-2 text-xs"><option value="ALL">All statuses</option>{["NEW","AI_TRIAGED","ASSIGNED","IN_PROGRESS","WAITING_FOR_TEAM","ON_HOLD","RESOLVED","CLOSED"].map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}</select><select value={urgencyFilter} onChange={(event) => setUrgencyFilter(event.target.value as Urgency | "ALL")} className="border border-[#E1E4E2] bg-white px-3 py-2 text-xs"><option value="ALL">All urgency</option>{["CRITICAL","URGENT","HIGH","NORMAL","LOW"].map((urgency) => <option key={urgency} value={urgency}>{urgency}</option>)}</select><button onClick={() => { setPriorityFilter("ALL"); setOverdueOnly(false); }} className="border border-[#E1E4E2] px-3 py-2 text-xs text-[#52616A]">Clear special filters</button></div></div>
           {loading ? <p className="p-5 text-sm text-[#68747C]">Loading ticket register...</p> : <TicketRows tickets={filteredTickets} onSelect={setSelectedTicket} />}
         </section>}
 

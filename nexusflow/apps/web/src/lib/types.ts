@@ -1,11 +1,13 @@
 export type Department = "FACTORY" | "OPERATIONS" | "LOGISTICS";
 export type Priority = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+export type Urgency = "CRITICAL" | "URGENT" | "HIGH" | "NORMAL" | "LOW";
 export type TicketStatus =
   | "NEW"
   | "AI_TRIAGED"
   | "ASSIGNED"
   | "IN_PROGRESS"
   | "WAITING_FOR_TEAM"
+  | "ON_HOLD"
   | "RESOLVED"
   | "CLOSED";
 export type DemoRole = "CUSTOMER" | "FACTORY_AGENT" | "LOGISTICS_AGENT" | "OPERATIONS_ADMIN" | "SYSTEM_ADMIN";
@@ -30,6 +32,12 @@ export interface Ticket {
   category: string;
   priority: Priority;
   priorityScore: number;
+  urgency?: Urgency;
+  slaConsumedPercent?: number;
+  overdueSince?: string;
+  escalationState?: "NONE" | "APPROACHING" | "BREACHED" | "OPERATIONS_REVIEW" | "SEVERELY_OVERDUE";
+  operationsReviewRequired?: boolean;
+  managementReviewRequired?: boolean;
   status: TicketStatus;
   assignedTo: string;
   assignedToId?: string;

@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import { tickets as initialTickets } from "./mock-data";
 import { resolveAssignment, resolveDepartment } from "./routing";
 import { createClient } from "./supabase/client";
-import type { Department, DemoRole, Ticket, TicketActivity, TicketStatus } from "./types";
+import type { Department, DemoRole, Ticket, TicketActivity, TicketStatus, Urgency } from "./types";
 
 const STORAGE_KEY = "nexusflow-demo-tickets";
 
@@ -60,6 +60,11 @@ function nowLabel() {
 function withDefaults(ticket: Ticket): Ticket {
   return {
     ...ticket,
+    urgency: ticket.urgency ?? "NORMAL",
+    slaConsumedPercent: ticket.slaConsumedPercent ?? 0,
+    escalationState: ticket.escalationState ?? "NONE",
+    operationsReviewRequired: ticket.operationsReviewRequired ?? false,
+    managementReviewRequired: ticket.managementReviewRequired ?? false,
     internalNotes: ticket.internalNotes ?? [],
     customerMessages: ticket.customerMessages ?? [],
     assignedToId: ticket.assignedToId ?? demoTeam.find((member) => member.fullName === ticket.assignedTo)?.id,
@@ -144,6 +149,12 @@ function fromDatabase(
     category: String(row.category),
     priority: row.priority as Ticket["priority"],
     priorityScore: Number(row.priority_score ?? 0),
+    urgency: (row.urgency as Urgency) ?? "NORMAL",
+    slaConsumedPercent: Number(row.sla_consumed_percent ?? 0),
+    overdueSince: row.overdue_since ? String(row.overdue_since) : undefined,
+    escalationState: (row.escalation_state as Ticket["escalationState"]) ?? "NONE",
+    operationsReviewRequired: Boolean(row.operations_review_required),
+    managementReviewRequired: Boolean(row.management_review_required),
     status: row.status as TicketStatus,
     assignedToId: row.assigned_to ? String(row.assigned_to) : undefined,
     assignedTo: row.assigned_to ? (people.get(String(row.assigned_to)) ?? "Assigned") : "Unassigned",
