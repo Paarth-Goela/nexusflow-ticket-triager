@@ -7,9 +7,10 @@ import { TicketDetailPanel } from "@/components/tickets/ticket-detail-panel";
 import { StatusBadge } from "@/components/tickets/status-badge";
 import { useTickets } from "@/lib/ticket-context";
 import { createClient } from "@/lib/supabase/client";
+import { routingCategories } from "@/lib/routing";
 import type { Ticket } from "@/lib/types";
 
-const categories = ["Production issue", "Product quality", "Shipment delay", "Delivery issue", "Documentation", "Other"];
+const categories: string[] = [...routingCategories];
 
 export default function CustomerPage() {
   const { tickets, createTicket, loading, error } = useTickets();

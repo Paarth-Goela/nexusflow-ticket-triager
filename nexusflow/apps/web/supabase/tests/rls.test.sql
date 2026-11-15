@@ -3,7 +3,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select extensions.plan(16);
+select extensions.plan(21);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password,
@@ -81,6 +81,32 @@ select extensions.is(
   1,
   'Customer A can read public messages on their own ticket'
 );
+select public.create_customer_ticket(
+  'Shipment routing test',
+  'A deterministic routing test ticket',
+  'Customer A',
+  'Shipment Delay',
+  null,
+  'SHIP-TEST'
+);
+select extensions.is(
+  (select department::text from public.tickets where subject = 'Shipment routing test'),
+  'LOGISTICS',
+  'Customer ticket category is routed to Logistics'
+);
+select extensions.is(
+  (select count(*)::integer from public.ticket_events e
+   join public.tickets t on t.id = e.ticket_id
+   where t.subject = 'Shipment routing test' and e.event_type = 'ROUTED'),
+  1,
+  'Customer ticket routing event is recorded'
+);
+select extensions.throws_ok(
+  $$select public.transfer_ticket('TEST-CUSTOMER-A', 'LOGISTICS'::public.department)$$,
+  'P0001',
+  'Only Operations users or the Central Admin can transfer tickets',
+  'Customers cannot transfer tickets'
+);
 select extensions.throws_ok(
   $$update public.profiles set role = 'OPERATIONS_ADMIN' where id = '10000000-0000-0000-0000-000000000001'$$,
   'P0001',
@@ -144,8 +170,13 @@ select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000005
 select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000005","role":"authenticated"}', true);
 select extensions.is(
   (select count(*)::integer from public.tickets where ticket_number in ('TEST-CUSTOMER-A', 'TEST-CUSTOMER-B')),
-  2,
-  'Operations administrators can read tickets across departments'
+  0,
+  'Operations administrators cannot read tickets outside Operations'
+);
+select extensions.is(
+  (select count(*)::integer from public.tickets where department = 'OPERATIONS'),
+  0,
+  'Operations administrators see only Operations tickets'
 );
 
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000006', true);

@@ -97,8 +97,8 @@ export async function proxy(request: NextRequest) {
 
   const allowed =
     (pathname === "/customer" || pathname.startsWith("/customer/")) ? role === "CUSTOMER" :
-    (pathname === "/factory" || pathname.startsWith("/factory/")) ? ["FACTORY_AGENT", "OPERATIONS_ADMIN", "SYSTEM_ADMIN"].includes(role) :
-    (pathname === "/logistics" || pathname.startsWith("/logistics/")) ? ["LOGISTICS_AGENT", "OPERATIONS_ADMIN", "SYSTEM_ADMIN"].includes(role) :
+    (pathname === "/factory" || pathname.startsWith("/factory/")) ? ["FACTORY_AGENT", "SYSTEM_ADMIN"].includes(role) :
+    (pathname === "/logistics" || pathname.startsWith("/logistics/")) ? ["LOGISTICS_AGENT", "SYSTEM_ADMIN"].includes(role) :
     (pathname === "/operations" || pathname.startsWith("/operations/")) ? role === "OPERATIONS_ADMIN" || role === "SYSTEM_ADMIN" :
     (pathname === "/admin" || pathname.startsWith("/admin/")) ? role === "SYSTEM_ADMIN" :
     false;

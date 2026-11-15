@@ -9,7 +9,7 @@ import { Button } from "../ui/button";
 import { PriorityIndicator } from "./priority-indicator";
 import { StatusBadge } from "./status-badge";
 
-export function TicketDetailPanel({ ticket, customerView = false, systemAdmin = false, onClose }: { ticket: Ticket; customerView?: boolean; systemAdmin?: boolean; onClose: () => void }) {
+export function TicketDetailPanel({ ticket, customerView = false, systemAdmin = false, canTransfer = false, onClose }: { ticket: Ticket; customerView?: boolean; systemAdmin?: boolean; canTransfer?: boolean; onClose: () => void }) {
   const {
     updateStatus,
     updateTicket,
@@ -33,7 +33,7 @@ export function TicketDetailPanel({ ticket, customerView = false, systemAdmin = 
       <div className="grid grid-cols-2 gap-4 border-y border-[#E1E4E2] py-4"><Detail label="Customer" value={ticket.customer} /><Detail label="Email" value={ticket.customerEmail} /><Detail label="Department" value={departmentLabels[ticket.department]} /><Detail label="Priority" value={priorityLabels[ticket.priority]} /><Detail label="Assigned to" value={ticket.assignedTo} /><Detail label="SLA deadline" value={ticket.slaDeadline} /><Detail label="Order ID" value={ticket.orderId ?? "Not provided"} /><Detail label="Shipment ID" value={ticket.shipmentId ?? "Not provided"} />{ticket.factoryLocation && <Detail label="Factory location" value={ticket.factoryLocation} />}{ticket.origin && <Detail label="Origin" value={ticket.origin} />}{ticket.destination && <Detail label="Destination" value={ticket.destination} />}{ticket.proofOfDeliveryReference && <Detail label="Proof of delivery" value={ticket.proofOfDeliveryReference} />}</div>
       <div className="flex items-center justify-between"><PriorityIndicator priority={ticket.priority} /><StatusBadge status={ticket.status} /></div>
       {!customerView && <div className="space-y-3">
-        {systemAdmin && <>
+        {(systemAdmin || canTransfer) && <>
           <label className="block text-xs font-semibold text-[#68747C]">Transfer department<select value={ticket.department} onChange={(event) => { void updateTicket(ticket.id, { department: event.target.value as Department }); }} className="mt-2 w-full border border-[#E1E4E2] bg-white px-3 py-2 text-sm font-normal text-[#172B3A]"><option value="OPERATIONS">Operations</option><option value="FACTORY">Factory</option><option value="LOGISTICS">Logistics</option></select></label>
           <label className="block text-xs font-semibold text-[#68747C]">Set priority<select value={ticket.priority} onChange={(event) => { void updateTicket(ticket.id, { priority: event.target.value as Priority }); }} className="mt-2 w-full border border-[#E1E4E2] bg-white px-3 py-2 text-sm font-normal text-[#172B3A]"><option value="CRITICAL">Critical</option><option value="HIGH">High</option><option value="MEDIUM">Medium</option><option value="LOW">Low</option></select></label>
         </>}
