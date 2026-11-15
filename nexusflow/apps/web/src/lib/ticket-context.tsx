@@ -151,6 +151,7 @@ function fromDatabase(
     priorityScore: Number(row.priority_score ?? 0),
     urgency: (row.urgency as Urgency) ?? "NORMAL",
     slaConsumedPercent: Number(row.sla_consumed_percent ?? 0),
+    overdueSeconds: Number(row.overdue_seconds ?? 0),
     overdueSince: row.overdue_since ? String(row.overdue_since) : undefined,
     escalationState: (row.escalation_state as Ticket["escalationState"]) ?? "NONE",
     operationsReviewRequired: Boolean(row.operations_review_required),

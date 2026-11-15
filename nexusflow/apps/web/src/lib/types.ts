@@ -34,6 +34,7 @@ export interface Ticket {
   priorityScore: number;
   urgency?: Urgency;
   slaConsumedPercent?: number;
+  overdueSeconds?: number;
   overdueSince?: string;
   escalationState?: "NONE" | "APPROACHING" | "BREACHED" | "OPERATIONS_REVIEW" | "SEVERELY_OVERDUE";
   operationsReviewRequired?: boolean;
