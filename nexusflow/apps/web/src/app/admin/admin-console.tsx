@@ -10,6 +10,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import { TicketDetailPanel } from "@/components/tickets/ticket-detail-panel";
 import { PriorityIndicator } from "@/components/tickets/priority-indicator";
 import { StatusBadge } from "@/components/tickets/status-badge";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { useTickets } from "@/lib/ticket-context";
 import { createClient } from "@/lib/supabase/client";
 import { isOpen } from "@/lib/utils";
@@ -141,7 +142,7 @@ function AdminConsole() {
     <div className="lg:pl-64">
       <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#E1E4E2] bg-white px-5 sm:px-8">
         <div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center bg-[#287D73] text-sm font-bold text-white lg:hidden">N</span><div><p className="text-sm font-semibold">Platform control</p><p className="text-[10px] text-[#68747C]">NexusFlow / Central Admin</p></div></div>
-        <div className="flex items-center gap-3"><span className="hidden text-xs text-[#68747C] sm:inline">Restricted administrator workspace</span><div className="lg:hidden"><LogoutButton /></div></div>
+        <div className="flex items-center gap-3"><NotificationBell /><span className="hidden text-xs text-[#68747C] sm:inline">Restricted administrator workspace</span><div className="lg:hidden"><LogoutButton /></div></div>
       </header>
 
       <main className="mx-auto max-w-[1600px] space-y-6 px-5 py-7 sm:px-8">
