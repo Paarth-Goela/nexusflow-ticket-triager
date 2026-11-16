@@ -33,7 +33,7 @@ export function NotificationBell() {
         .order("created_at", { ascending: false })
         .limit(25);
       if (!active) return;
-      if (resultError) setError(resultError.message);
+      if (resultError) setError(`Notifications could not be loaded: ${resultError.message}`);
       else setItems((data ?? []) as Notification[]);
       const { data: preference } = await supabase.from("notification_preferences").select("email_enabled, in_app_enabled").maybeSingle();
       if (active && preference) setPreferences(preference as Preferences);
@@ -42,7 +42,9 @@ export function NotificationBell() {
     const channel = supabase
       .channel("nexusflow-notifications")
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => { void load(); })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setError("Live notification updates are unavailable; refresh to retry.");
+      });
     return () => { active = false; void supabase.removeChannel(channel); };
   }, []);
 
