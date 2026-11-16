@@ -44,7 +44,9 @@ begin
     when 'DEPARTMENT_CHANGE' then 'DEPARTMENT_TRANSFERRED'
     when 'SLA_APPROACHING' then 'SLA_APPROACHING'
     when 'SLA_BREACHED' then 'SLA_BREACHED'
-    when 'OPERATIONS_REVIEW_REQUIRED', 'SEVERELY_OVERDUE', 'CRITICAL_OVERDUE' then 'ESCALATION'
+    when 'OPERATIONS_REVIEW_REQUIRED' then 'ESCALATION'
+    when 'SEVERELY_OVERDUE' then 'ESCALATION'
+    when 'CRITICAL_OVERDUE' then 'ESCALATION'
     else null
   end;
   if category_value is null then return new; end if;
